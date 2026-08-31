@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New "Max kept days" setting: expire processed audio a number of days after processing finished. Works alongside "Max kept episodes", an episode expires when it exceeds either limit.
 
+### Changed
+
+- The default "Max response tokens" setting is now 16384 (was 4096), to better accommodate reasoning models.
+
 ### Removed
 
 - The "Max removed (%)" setting. The safety valve is still there, fixed at 50%.

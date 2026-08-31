@@ -77,7 +77,7 @@ class LLMClient:
         self.api_key = settings["llm_api_key"]
         self.model = settings["llm_model"]
         self.temperature = float(settings["llm_temperature"])
-        self.max_tokens = int(settings.get("llm_max_tokens") or 4096)
+        self.max_tokens = int(settings.get("llm_max_tokens") or 16384)
         self.timeout_s = float(settings["llm_timeout_s"])
 
     async def chat(
