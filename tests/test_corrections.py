@@ -6,7 +6,7 @@ from hushcast.detection.corrections import (
     build_excerpt,
     parse_distill_response,
 )
-from hushcast.detection.prompts import build_messages, Chunk
+from hushcast.detection.prompts import Chunk, build_messages
 from hushcast.transcription.base import Transcript, TranscriptSegment
 
 
@@ -22,11 +22,11 @@ class TestExcerpt:
         out = build_excerpt(make_transcript(), 40.0, 60.0)
         lines = out.splitlines()
         # 30s context on each side: lines from 10s..90s included
-        assert any("line 1" in l for l in lines)
-        assert not any("line 0" in l and l.startswith("»") for l in lines)
-        marked = [l for l in lines if l.startswith("»")]
+        assert any("line 1" in line for line in lines)
+        assert not any("line 0" in line and line.startswith("»") for line in lines)
+        marked = [line for line in lines if line.startswith("»")]
         assert len(marked) == 2  # lines 4 and 5 (40-50, 50-60)
-        assert all("line 4" in l or "line 5" in l for l in marked)
+        assert all("line 4" in line or "line 5" in line for line in marked)
 
     def test_far_lines_excluded(self):
         out = build_excerpt(make_transcript(), 0.0, 10.0)

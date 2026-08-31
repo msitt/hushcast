@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 CAPACITY = 1000
 
@@ -28,7 +28,7 @@ class RingBufferHandler(logging.Handler):
             message = record.getMessage()
         self.records.append(
             {
-                "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+                "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
                 "level": record.levelname,
                 "levelno": record.levelno,
                 "logger": record.name,

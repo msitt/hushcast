@@ -1,8 +1,8 @@
 """Verify FileResponse serves byte ranges (podcast clients stream/seek with Range)."""
+import pytest
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.testclient import TestClient
-import pytest
 
 
 @pytest.fixture(scope="module")

@@ -2,17 +2,17 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 
+from .. import settings_store
 from ..config import get_config
 from ..db import session_factory
 from ..models import Episode, Feed
 from ..rss import fetch as rss_fetch
-from .. import settings_store
 from . import state
 from .worker import worker
 
@@ -27,7 +27,7 @@ CLEANUP_JOB_ID = "cleanup"
 def _aware(dt: datetime | None) -> datetime | None:
     """SQLite hands back naive datetimes, treat them as UTC."""
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -39,7 +39,7 @@ async def start() -> None:
     scheduler.add_job(
         poll_all_feeds, "interval",
         minutes=max(1, int(settings["poll_interval_minutes"])),
-        id=POLL_JOB_ID, next_run_time=datetime.now(timezone.utc) + timedelta(seconds=10),
+        id=POLL_JOB_ID, next_run_time=datetime.now(UTC) + timedelta(seconds=10),
         replace_existing=True,
     )
     scheduler.add_job(cleanup, "interval", hours=24, id=CLEANUP_JOB_ID, replace_existing=True)
@@ -130,7 +130,7 @@ async def poll_feed(feed_id: int) -> None:
             feed = await session.get(Feed, feed_id)
             if feed is not None:
                 feed.poll_error = str(exc)[:2000]
-                feed.last_polled_at = datetime.now(timezone.utc)
+                feed.last_polled_at = datetime.now(UTC)
                 await session.commit()
         raise
 
@@ -138,7 +138,7 @@ async def poll_feed(feed_id: int) -> None:
         feed = await session.get(Feed, feed_id)
         if feed is None:
             return
-        feed.last_polled_at = datetime.now(timezone.utc)
+        feed.last_polled_at = datetime.now(UTC)
         feed.poll_error = None
         if parsed.not_modified:
             await session.commit()
@@ -190,7 +190,7 @@ async def cleanup() -> None:
     max_kept = int(settings["max_kept_episodes"])
     max_days = int(settings["max_kept_days"])
     if max_kept > 0 or max_days > 0:
-        age_cutoff = datetime.now(timezone.utc) - timedelta(days=max_days) if max_days > 0 else None
+        age_cutoff = datetime.now(UTC) - timedelta(days=max_days) if max_days > 0 else None
         async with factory() as session:
             feed_ids = (await session.execute(select(Feed.id))).scalars().all()
             for feed_id in feed_ids:
@@ -215,7 +215,7 @@ async def cleanup() -> None:
 
     # age out kept originals
     if settings["keep_originals"]:
-        cutoff = datetime.now(timezone.utc).timestamp() - int(settings["keep_originals_days"]) * 86400
+        cutoff = datetime.now(UTC).timestamp() - int(settings["keep_originals_days"]) * 86400
         async with factory() as session:
             rows = (
                 await session.execute(select(Episode).where(Episode.original_path.is_not(None)))

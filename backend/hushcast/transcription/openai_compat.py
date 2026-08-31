@@ -13,7 +13,13 @@ from typing import Any
 import httpx
 
 from ..errors import RateLimitError, parse_retry_after
-from .base import ProviderCapabilities, Transcript, TranscriptSegment, TranscriptionProvider, Word
+from .base import (
+    ProviderCapabilities,
+    Transcript,
+    TranscriptionProvider,
+    TranscriptSegment,
+    Word,
+)
 
 log = logging.getLogger(__name__)
 

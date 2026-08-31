@@ -867,10 +867,10 @@ export function EpisodeDetailPage() {
     }
   };
 
-  const correctSegment = async (id: number, kept: boolean) => {
+  const correctSegment = async (segmentId: number, kept: boolean) => {
     setBusy(true);
     try {
-      await api.patchSegment(id, kept);
+      await api.patchSegment(segmentId, kept);
       toastSuccess(kept ? "Marked as not-an-ad, feeds the next distill" : "Correction undone");
       reload();
     } catch (err) {
@@ -880,10 +880,10 @@ export function EpisodeDetailPage() {
     }
   };
 
-  const removeManualSegment = async (id: number) => {
+  const removeManualSegment = async (segmentId: number) => {
     setBusy(true);
     try {
-      await api.deleteSegment(id);
+      await api.deleteSegment(segmentId);
       toastSuccess("Manual segment removed");
       reload();
     } catch (err) {

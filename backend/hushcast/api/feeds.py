@@ -12,12 +12,12 @@ from slugify import slugify
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import settings_store
 from ..config import get_config
 from ..models import Episode, Feed, Segment, utcnow
 from ..pipeline import scheduler, state
 from ..pipeline.worker import worker
 from ..rss import fetch as rss_fetch
-from .. import settings_store
 from .deps import get_session
 
 log = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ async def create_feed(body: FeedCreate, session: AsyncSession = Depends(get_sess
     try:
         parsed = await rss_fetch.fetch(body.url)
     except Exception as exc:
-        raise HTTPException(400, f"could not fetch/parse feed: {exc}")
+        raise HTTPException(400, f"could not fetch/parse feed: {exc}") from exc
     if not parsed.episodes:
         raise HTTPException(400, "feed has no episodes with audio enclosures")
 
@@ -239,7 +239,7 @@ async def distill_hints(feed_id: int, session: AsyncSession = Depends(get_sessio
             corrections=corrections,
         )
     except Exception as exc:
-        raise HTTPException(502, f"distillation failed: {exc}")
+        raise HTTPException(502, f"distillation failed: {exc}") from exc
     return {
         "feed_hints": feed_hints,
         "global_hints": global_hints,

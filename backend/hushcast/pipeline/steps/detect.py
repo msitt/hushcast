@@ -1,15 +1,15 @@
 """LLM ad detection + post-processing, persists Segment rows."""
 from __future__ import annotations
 
+import json
 import time
 
 from sqlalchemy import delete, select
 
-import json
-
 from ...db import session_factory
 from ...detection import llm as llm_mod
-from ...detection import prompts, refine, segments as seg
+from ...detection import prompts, refine
+from ...detection import segments as seg
 from ...models import LlmCall, Segment
 from ..context import EpisodeContext
 from .cues import load_cues

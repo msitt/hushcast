@@ -1,7 +1,7 @@
 """Build the served RSS feed from DB fields (never round-trips source XML)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import format_datetime
 from xml.etree import ElementTree as ET
 
@@ -23,7 +23,7 @@ def _rfc2822(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return format_datetime(dt)
 
 

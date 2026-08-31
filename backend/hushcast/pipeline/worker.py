@@ -5,16 +5,16 @@ import asyncio
 import json
 import logging
 import traceback
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 import httpx
 from sqlalchemy import select
 
+from .. import settings_store
 from ..config import get_config
 from ..db import session_factory
 from ..errors import RateLimitError
 from ..models import Episode, Feed, Job, utcnow
-from .. import settings_store
 from . import state
 from .context import EpisodeContext
 from .steps import cues, cut, detect, download, finalize, transcribe

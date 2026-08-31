@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import calendar
+import contextlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import feedparser
 import httpx
@@ -84,15 +85,13 @@ def parse_bytes(content: bytes) -> ParsedFeed:
             continue
 
         length = None
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             length = int(enclosure.get("length") or 0) or None  # length="0" is common, never trust it
-        except (TypeError, ValueError):
-            pass
 
         published = None
         if entry.get("published_parsed"):
             published = datetime.fromtimestamp(
-                calendar.timegm(entry.published_parsed), tz=timezone.utc
+                calendar.timegm(entry.published_parsed), tz=UTC
             )
 
         guid = entry.get("id") or enclosure["href"]

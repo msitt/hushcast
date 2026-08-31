@@ -6,7 +6,7 @@ import platform
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
@@ -25,7 +25,7 @@ from .deps import get_session
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
-STARTED_AT = datetime.now(timezone.utc)
+STARTED_AT = datetime.now(UTC)
 
 # Statuses whose episodes count toward lifetime stats: expiry deletes the audio
 # file but keeps the row and its duration/ad metrics.

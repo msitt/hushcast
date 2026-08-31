@@ -1,3 +1,5 @@
+import pytest
+
 from hushcast.detection.refine import WordGap
 from hushcast.detection.segments import (
     AdSegment,
@@ -12,7 +14,6 @@ from hushcast.detection.segments import (
     postprocess,
     snap_to_boundaries,
 )
-import pytest
 
 
 def seg(start, end, category="ad", confidence=0.9, reason=""):

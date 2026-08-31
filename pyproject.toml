@@ -22,6 +22,7 @@ dev = [
     "httpx2>=2.12.0",
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
+    "ruff>=0.9",
 ]
 
 [build-system]
@@ -33,6 +34,26 @@ packages = ["backend/hushcast"]
 
 [tool.hatch.version]
 path = "backend/hushcast/__init__.py"
+
+[tool.ruff]
+target-version = "py314"
+src = ["backend"]
+extend-exclude = ["backend/hushcast/migrations/versions"]  # alembic-generated
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "SIM", # simplify
+]
+ignore = [
+    "E501", # line length, not enforced
+    "B008", # function call in default argument, the FastAPI Depends() idiom
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

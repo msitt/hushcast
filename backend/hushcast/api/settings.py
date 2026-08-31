@@ -6,10 +6,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import loglevel, settings_store
 from ..detection.llm import LLMClient
 from ..pipeline import scheduler
 from ..transcription.openai_compat import build_transcriber
-from .. import loglevel, settings_store
 from .deps import get_session
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -32,7 +32,7 @@ async def put_settings(
     try:
         await settings_store.set_many(session, body)
     except KeyError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
     settings = await settings_store.get_all(session)
     if "poll_interval_minutes" in body:
         scheduler.reschedule_poll(int(settings["poll_interval_minutes"]))

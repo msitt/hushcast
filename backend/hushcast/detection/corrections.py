@@ -41,7 +41,7 @@ def build_excerpt(transcript: Transcript, start_s: float, end_s: float) -> str:
     lo = start_s - EXCERPT_CONTEXT_S
     hi = end_s + EXCERPT_CONTEXT_S
     lines = []
-    for seg, line in zip(transcript.segments, render_lines(transcript)):
+    for seg, line in zip(transcript.segments, render_lines(transcript), strict=False):
         if seg.end < lo or seg.start > hi:
             continue
         inside = seg.start < end_s and seg.end > start_s

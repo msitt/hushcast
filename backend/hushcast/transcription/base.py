@@ -66,7 +66,7 @@ class Transcript:
         """
         language = next((t.language for t in transcripts if t.language), None)
         segments: list[TranscriptSegment] = []
-        for i, (transcript, offset) in enumerate(zip(transcripts, offsets)):
+        for i, (transcript, offset) in enumerate(zip(transcripts, offsets, strict=True)):
             owned_start, owned_end = owned_ranges[i] if owned_ranges else (float("-inf"), float("inf"))
             for seg in transcript.segments:
                 start = seg.start + offset

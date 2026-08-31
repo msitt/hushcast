@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from hushcast import auth
 
-
 # ---------- pure unit tests ----------
 
 

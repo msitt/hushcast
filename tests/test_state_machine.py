@@ -8,7 +8,7 @@ def test_happy_path():
         state.DISCOVERED, state.QUEUED, state.DOWNLOADING, state.TRANSCRIBING,
         state.DETECTING, state.CUTTING, state.PROCESSED,
     ]
-    for current, new in zip(path, path[1:]):
+    for current, new in zip(path, path[1:], strict=False):
         state.validate_transition(current, new)
 
 

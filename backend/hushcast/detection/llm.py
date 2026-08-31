@@ -5,11 +5,9 @@ import json
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
-
-# Called after each successful chat request so callers can persist the exchange.
-CallRecorder = Callable[[dict[str, Any]], Awaitable[None]]
+from typing import Any
 
 import httpx
 
@@ -18,6 +16,9 @@ from ..errors import RateLimitError, parse_retry_after
 from ..transcription.base import Transcript
 from . import prompts
 from .segments import AdSegment
+
+# Called after each successful chat request so callers can persist the exchange.
+CallRecorder = Callable[[dict[str, Any]], Awaitable[None]]
 
 log = logging.getLogger(__name__)
 
@@ -107,10 +108,13 @@ class LLMClient:
         started = time.monotonic()
         async with httpx.AsyncClient(timeout=httpx.Timeout(self.timeout_s, connect=30.0)) as client:
             resp = await client.post(f"{self.base_url}/chat/completions", json=body, headers=headers)
-            if resp.status_code == 400 and "response_format" in resp.text:
-                # graded fallback for servers that reject the structured form:
-                # json_schema -> json_object -> no response_format at all
-                if body["response_format"]["type"] == "json_schema":
+            # graded fallback for servers that reject the structured form:
+            # json_schema -> json_object -> no response_format at all
+            if (
+                resp.status_code == 400
+                and "response_format" in resp.text
+                and body["response_format"]["type"] == "json_schema"
+            ):
                     events.append("server rejected json_schema response_format (HTTP 400), retried with json_object")
                     log.info("LLM rejected json_schema response_format, retrying with json_object")
                     body["response_format"] = {"type": "json_object"}

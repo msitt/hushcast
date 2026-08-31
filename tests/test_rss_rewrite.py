@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from xml.etree import ElementTree as ET
 
 from hushcast.models import Episode, Feed
@@ -16,7 +16,7 @@ def make_feed():
 def make_episode(i=1, **kw):
     defaults = dict(
         id=i, feed_id=1, guid=f"guid-{i}", title=f"Ep {i}",
-        published_at=datetime(2025, 8, i, 10, 0, tzinfo=timezone.utc),
+        published_at=datetime(2025, 8, i, 10, 0, tzinfo=UTC),
         description_html="<p>notes</p>",
         source_enclosure_url="https://cdn.example.com/x.mp3",
         processed_bytes=1234567, processed_duration_s=3725.0,

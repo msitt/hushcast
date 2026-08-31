@@ -4,11 +4,10 @@ Revision ID: f2a41f0c9d17
 Revises: e80f3c8e2563
 Create Date: 2026-08-30 12:00:00.000000
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 import hushcast.models
-
 
 revision = 'f2a41f0c9d17'
 down_revision = 'e80f3c8e2563'

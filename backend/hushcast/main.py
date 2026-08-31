@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, auth, logbuffer, loglevel, settings_store
-from .api import episodes, feeds, settings as settings_api, system
+from .api import episodes, feeds, system
+from .api import settings as settings_api
 from .config import get_config
 from .db import dispose_db, init_db, session_factory
 from .pipeline import scheduler

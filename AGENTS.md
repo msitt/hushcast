@@ -13,12 +13,14 @@ uv sync                                              # install backend deps
 uv run pytest                                        # all backend tests
 uv run pytest tests/test_segments.py                 # one file
 uv run pytest tests/test_segments.py -k merge        # one test by keyword
+uv run ruff check backend tests                      # backend lint (CI enforces this)
 uv run uvicorn hushcast.main:app --reload --port 4874  # backend dev server
 
 cd frontend
 npm install
 npm run dev      # Vite dev server, proxies /api and /p to :4874
 npm run build    # tsc --noEmit + vite build
+npm run lint     # oxlint, warnings fail (CI enforces this)
 ```
 
 ffmpeg must be on PATH. Config comes from `HUSHCAST_*` env vars or a `.env` file (see `.env.example`). Everything else is runtime settings in SQLite, edited via the UI.

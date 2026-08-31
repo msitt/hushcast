@@ -185,9 +185,12 @@ def extend_to_edges(
     if 0 < first.start <= max_edge_extension_s and _uncovered(0.0, first.start, cue_intervals) <= coverage_slack_s:
         ordered[0] = replace(first, start=0.0)
     last = ordered[-1]
-    if duration > 0 and 0 < duration - last.end <= max_edge_extension_s:
-        if _uncovered(last.end, duration, cue_intervals) <= coverage_slack_s:
-            ordered[-1] = replace(last, end=duration)
+    if (
+        duration > 0
+        and 0 < duration - last.end <= max_edge_extension_s
+        and _uncovered(last.end, duration, cue_intervals) <= coverage_slack_s
+    ):
+        ordered[-1] = replace(last, end=duration)
     return ordered
 
 

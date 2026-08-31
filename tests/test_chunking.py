@@ -31,7 +31,7 @@ def test_splits_with_overlap_when_over_budget():
     # tiny budget forces multiple chunks
     chunks = chunk_transcript(t, budget_tokens=500, overlap_s=60.0)
     assert len(chunks) > 1
-    for prev, nxt in zip(chunks, chunks[1:]):
+    for prev, nxt in zip(chunks, chunks[1:], strict=False):
         assert nxt.start_s < prev.end_s  # overlapping
         assert prev.end_s - nxt.start_s >= 30  # meaningful overlap
     assert chunks[0].start_s == 0.0
@@ -78,7 +78,7 @@ def test_chunking_with_cues_still_overlaps():
     cues = [Cue(start=i * 100.0, end=i * 100.0 + 5.0, kind="music") for i in range(40)]
     chunks = chunk_transcript(t, budget_tokens=500, overlap_s=60.0, cues=cues)
     assert len(chunks) > 1
-    for prev, nxt in zip(chunks, chunks[1:]):
+    for prev, nxt in zip(chunks, chunks[1:], strict=False):
         assert nxt.start_s < prev.end_s
 
 

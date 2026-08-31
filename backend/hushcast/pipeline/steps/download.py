@@ -1,7 +1,6 @@
 """Download the source enclosure to original storage (idempotent, atomic)."""
 from __future__ import annotations
 
-import mimetypes
 from pathlib import Path
 
 import httpx
@@ -63,17 +62,16 @@ async def run(ctx: EpisodeContext) -> None:
     url = ctx.source_enclosure_url
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(300.0, connect=30.0), follow_redirects=True
-    ) as client:
-        async with client.stream("GET", url, headers={"User-Agent": USER_AGENT}) as resp:
-            resp.raise_for_status()
-            ext = _pick_extension(str(resp.url), resp.headers.get("Content-Type"))
-            dest = ctx.config.original_audio_dir / f"{ctx.episode_id}{ext}"
-            part = dest.with_suffix(dest.suffix + ".part")
-            size = 0
-            with part.open("wb") as f:
-                async for chunk in resp.aiter_bytes(1 << 16):
-                    f.write(chunk)
-                    size += len(chunk)
+    ) as client, client.stream("GET", url, headers={"User-Agent": USER_AGENT}) as resp:
+        resp.raise_for_status()
+        ext = _pick_extension(str(resp.url), resp.headers.get("Content-Type"))
+        dest = ctx.config.original_audio_dir / f"{ctx.episode_id}{ext}"
+        part = dest.with_suffix(dest.suffix + ".part")
+        size = 0
+        with part.open("wb") as f:
+            async for chunk in resp.aiter_bytes(1 << 16):
+                f.write(chunk)
+                size += len(chunk)
 
     if size < MIN_PLAUSIBLE_BYTES:
         part.unlink(missing_ok=True)

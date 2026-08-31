@@ -51,7 +51,7 @@ def word_gaps(words: list[Word], duration: float | None = None) -> list[WordGap]
     gaps: list[WordGap] = []
     if words and words[0].start > 0:
         gaps.append(WordGap(start=0.0, end=words[0].start))
-    for prev, nxt in zip(words, words[1:]):
+    for prev, nxt in zip(words, words[1:], strict=False):
         if nxt.start > prev.end:
             gaps.append(WordGap(start=prev.end, end=nxt.start))
     if words and duration is not None and duration > words[-1].end:
@@ -143,6 +143,6 @@ def refine_boundaries(
 def count_moved(before: list, after: list) -> int:
     """Number of boundaries that refinement actually moved."""
     moved = 0
-    for b, a in zip(sorted(before, key=lambda s: s.start), sorted(after, key=lambda s: s.start)):
+    for b, a in zip(sorted(before, key=lambda s: s.start), sorted(after, key=lambda s: s.start), strict=True):
         moved += (b.start != a.start) + (b.end != a.end)
     return moved
