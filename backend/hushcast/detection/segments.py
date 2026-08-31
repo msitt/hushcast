@@ -28,6 +28,11 @@ class DetectionRejected(Exception):
     """Detection result failed sanity checks, do not cut with it."""
 
 
+# Circuit-breaker ceiling: refuse to cut when detection would remove more than
+# this share of an episode.
+MAX_REMOVED_PCT = 50.0
+
+
 def clamp(segments: list[AdSegment], duration: float) -> list[AdSegment]:
     out = []
     for s in segments:
@@ -207,7 +212,7 @@ def postprocess(
     min_confidence: float,
     min_duration_s: float,
     merge_gap_s: float,
-    max_removed_pct: float,
+    max_removed_pct: float = MAX_REMOVED_PCT,
     cue_intervals: list[tuple[float, float]] | None = None,
     bridge_max_gap_s: float = 0.0,
     edge_max_extension_s: float = 0.0,

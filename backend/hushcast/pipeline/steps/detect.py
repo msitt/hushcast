@@ -93,7 +93,6 @@ async def run(ctx: EpisodeContext) -> None:
         min_confidence=float(ctx.settings["min_confidence"]),
         min_duration_s=float(ctx.settings["min_duration_s"]),
         merge_gap_s=float(ctx.settings["merge_gap_s"]),
-        max_removed_pct=float(ctx.settings["max_removed_pct"]),
         cue_intervals=[(c.start, c.end) for c in cues] if cues else None,
         bridge_max_gap_s=float(ctx.settings["cue_bridge_max_gap_s"]),
         edge_max_extension_s=float(ctx.settings["cue_edge_max_extension_s"]),

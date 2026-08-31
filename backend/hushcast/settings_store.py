@@ -82,7 +82,6 @@ DEFAULTS: dict[str, Any] = {
     "min_duration_s": 8.0,
     "merge_gap_s": 7.0,
     "snap_tolerance_s": 15.0,
-    "max_removed_pct": 50.0,
     # word-level boundary refinement
     "refine_window_s": 2.0,  # max distance a cut boundary may move
     "refine_min_gap_s": 0.15,  # min inter-word silence to qualify as a cut point

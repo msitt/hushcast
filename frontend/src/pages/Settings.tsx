@@ -38,7 +38,6 @@ const NUMBER_KEYS: (keyof Settings)[] = [
   "min_duration_s",
   "merge_gap_s",
   "snap_tolerance_s",
-  "max_removed_pct",
   "refine_window_s",
   "refine_min_gap_s",
   "cue_remote_timeout_s",
@@ -585,9 +584,6 @@ export function SettingsPage() {
             })}
           </div>
           <div className="form-row">
-            {num("max_removed_pct", "Max removed (%)", {
-              hint: "Safety valve: if detection would remove more than this share of an episode, processing fails loudly instead of serving a gutted file.",
-            })}
             {num("max_kept_episodes", "Max kept episodes", {
               hint: "Per podcast, expire processed audio beyond the newest N episodes. 0 = keep everything.",
             })}

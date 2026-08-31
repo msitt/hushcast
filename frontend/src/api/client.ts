@@ -290,7 +290,6 @@ export interface Settings {
   min_duration_s: number;
   merge_gap_s: number;
   snap_tolerance_s: number;
-  max_removed_pct: number;
   refine_window_s: number;
   refine_min_gap_s: number;
   cue_provider: "off" | "silence" | "remote";

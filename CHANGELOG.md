@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The "Max removed (%)" setting. The safety valve is still there, fixed at 50%.
+
 ### Fixed
 
 - Noisy third-party loggers are now kept at WARNING.
