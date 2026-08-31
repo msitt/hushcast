@@ -28,6 +28,7 @@ async def lifespan(app: FastAPI):
     # The stored level isn't readable until the DB is up, start from the env
     # override (or default) so early logs flow, then apply the effective level.
     logging.basicConfig(level=(config.log_level or settings_store.DEFAULTS["log_level"]).upper())
+    loglevel.apply(loglevel.current())
     logging.getLogger().addHandler(logbuffer.handler)
     config.ensure_dirs()
     await init_db()

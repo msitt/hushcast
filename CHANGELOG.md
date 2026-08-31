@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Noisy third-party loggers are now kept at WARNING.
+
 ## [1.0.0] - 2026-08-31
 
 Initial version!

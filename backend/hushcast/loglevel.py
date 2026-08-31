@@ -14,9 +14,8 @@ from .config import get_config
 
 LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
 
-# Third-party loggers reined in at DEBUG so it stays focused on hushcast's own
-# logs (LLM payloads etc.). sqlalchemy.engine echoes SQL at INFO, aiosqlite
-# logs cursor ops at DEBUG.
+# Third-party loggers pinned at WARNING at every level so the log stays focused
+# on hushcast's own output.
 NOISY = ("sqlalchemy", "aiosqlite", "httpcore", "apscheduler", "python_multipart", "urllib3")
 
 
@@ -32,10 +31,6 @@ def current() -> str:
 def apply(level: str) -> None:
     level = level.upper()
     logging.getLogger().setLevel(level)
-    if level == "DEBUG":
-        logging.getLogger("httpx").setLevel(logging.INFO)  # one line per request is useful
-        for noisy in NOISY:
-            logging.getLogger(noisy).setLevel(logging.WARNING)
-    else:
-        for name in ("httpx", *NOISY):
-            logging.getLogger(name).setLevel(logging.NOTSET)  # inherit root again
+    logging.getLogger("httpx").setLevel(logging.INFO)  # one line per request is useful
+    for noisy in NOISY:
+        logging.getLogger(noisy).setLevel(logging.WARNING)
