@@ -96,6 +96,7 @@ DEFAULTS: dict[str, Any] = {
     "cue_bridge_max_gap_s": 12.0,  # merge ads across cue-covered gaps up to this (0 = off)
     "cue_edge_max_extension_s": 20.0,  # extend edge ads across stings up to this (0 = off)
     "max_kept_episodes": 0,  # per feed, 0 = unlimited
+    "max_kept_days": 0,  # days since processing, 0 = unlimited
     # audio output
     "mp3_quality": 4,  # libmp3lame VBR -q:a
     # logging: applied at runtime, no restart. HUSHCAST_LOG_LEVEL overrides.

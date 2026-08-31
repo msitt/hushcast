@@ -186,9 +186,11 @@ async def cleanup() -> None:
     async with factory() as session:
         settings = await settings_store.get_all(session)
 
-    # expire beyond per-feed retention
+    # expire beyond per-feed retention, by count and by age since processing
     max_kept = int(settings["max_kept_episodes"])
-    if max_kept > 0:
+    max_days = int(settings["max_kept_days"])
+    if max_kept > 0 or max_days > 0:
+        age_cutoff = datetime.now(timezone.utc) - timedelta(days=max_days) if max_days > 0 else None
         async with factory() as session:
             feed_ids = (await session.execute(select(Feed.id))).scalars().all()
             for feed_id in feed_ids:
@@ -199,7 +201,12 @@ async def cleanup() -> None:
                         .order_by(Episode.published_at.desc())
                     )
                 ).scalars().all()
-                for ep in processed[max_kept:]:
+                for i, ep in enumerate(processed):
+                    over_count = max_kept > 0 and i >= max_kept
+                    processed_at = _aware(ep.processed_at)
+                    over_age = age_cutoff is not None and processed_at is not None and processed_at < age_cutoff
+                    if not over_count and not over_age:
+                        continue
                     ep.status = state.EXPIRED
                     if ep.processed_path:
                         Path(ep.processed_path).unlink(missing_ok=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from ...audio import ffmpeg
 from ...db import session_factory
-from ...models import Episode
+from ...models import Episode, utcnow
 from ..context import EpisodeContext
 from .download import find_existing
 
@@ -22,6 +22,7 @@ async def run(ctx: EpisodeContext) -> None:
         episode.processed_path = str(processed)
         episode.processed_bytes = size
         episode.processed_duration_s = duration
+        episode.processed_at = utcnow()
         episode.ad_seconds_removed = float(ctx.metrics.get("ad_seconds_removed", 0.0))
         await session.commit()
 

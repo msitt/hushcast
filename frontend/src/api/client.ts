@@ -302,6 +302,7 @@ export interface Settings {
   cue_bridge_max_gap_s: number;
   cue_edge_max_extension_s: number;
   max_kept_episodes: number;
+  max_kept_days: number;
   mp3_quality: string;
   log_level: string;
   feed_token: string;

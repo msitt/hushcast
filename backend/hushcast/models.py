@@ -80,6 +80,7 @@ class Episode(Base):
     processed_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     processed_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     processed_duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     ad_seconds_removed: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

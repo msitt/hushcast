@@ -47,6 +47,7 @@ const NUMBER_KEYS: (keyof Settings)[] = [
   "cue_bridge_max_gap_s",
   "cue_edge_max_extension_s",
   "max_kept_episodes",
+  "max_kept_days",
   "mp3_quality",
 ];
 
@@ -585,7 +586,10 @@ export function SettingsPage() {
           </div>
           <div className="form-row">
             {num("max_kept_episodes", "Max kept episodes", {
-              hint: "Per podcast, expire processed audio beyond the newest N episodes. 0 = keep everything.",
+              hint: "Per podcast, expire processed audio beyond the newest N episodes. Combines with “Max kept days”. 0 = keep everything.",
+            })}
+            {num("max_kept_days", "Max kept days", {
+              hint: "Expire processed audio this many days after processing finished. An episode expires when it exceeds this or “Max kept episodes”, whichever hits first. 0 = keep everything.",
             })}
           </div>
           {num("mp3_quality", "MP3 quality", {
