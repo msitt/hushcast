@@ -5,7 +5,7 @@ Usage: python prepare_release.py X.Y.Z /path/to/release_notes.md
 Steps:
   - requires a non-empty [Unreleased] section in CHANGELOG.md
   - bumps __version__ in backend/hushcast/__init__.py
-  - bumps "version" in frontend/package.json
+  - bumps "version" in frontend/package.json and frontend/package-lock.json
   - renames [Unreleased] to [X.Y.Z] - <today> and opens a fresh
     empty [Unreleased] section above it
   - writes the released section's body to the release-notes path
@@ -21,6 +21,7 @@ from pathlib import Path
 
 INIT_FILE = Path("backend/hushcast/__init__.py")
 PACKAGE_JSON = Path("frontend/package.json")
+PACKAGE_LOCK_JSON = Path("frontend/package-lock.json")
 CHANGELOG = Path("CHANGELOG.md")
 
 
@@ -40,6 +41,14 @@ def main() -> None:
     init_content = INIT_FILE.read_text(encoding="utf-8")
     if not re.search(r'__version__\s*=\s*"[^"]+"', init_content):
         fail(f"could not find __version__ in {INIT_FILE}")
+
+    lock_content = PACKAGE_LOCK_JSON.read_text(encoding="utf-8")
+    lock_pattern = r'("name":\s*"hushcast-frontend",\s*\n\s*"version":\s*)"[^"]+"'
+    if len(re.findall(lock_pattern, lock_content)) != 2:
+        fail(
+            f"expected exactly two hushcast-frontend name/version pairs in "
+            f"{PACKAGE_LOCK_JSON}, found {len(re.findall(lock_pattern, lock_content))}"
+        )
 
     changelog = CHANGELOG.read_text(encoding="utf-8")
     if "## [Unreleased]" not in changelog:
@@ -65,6 +74,12 @@ def main() -> None:
     pkg = PACKAGE_JSON.read_text(encoding="utf-8")
     PACKAGE_JSON.write_text(
         re.sub(r'"version"\s*:\s*"[^"]+"', f'"version": "{version}"', pkg, count=1),
+        encoding="utf-8",
+        newline="",
+    )
+
+    PACKAGE_LOCK_JSON.write_text(
+        re.sub(lock_pattern, rf'\g<1>"{version}"', lock_content),
         encoding="utf-8",
         newline="",
     )
