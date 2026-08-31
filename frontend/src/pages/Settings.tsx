@@ -419,7 +419,7 @@ export function SettingsPage() {
           <div className="form-row">
             {num("llm_temperature", "Temperature", {
               step: "0.1",
-              hint: "0.5–0.8 recommended",
+              hint: "How much randomness the LLM adds to its output. Lower is more deterministic. 0.5–0.8 recommended.",
             })}
             {num("llm_context_budget_tokens", "Context budget (tokens)", {
               hint: "Transcripts estimated to exceed this are split into overlapping chunks. Set comfortably below your model's context window.",
