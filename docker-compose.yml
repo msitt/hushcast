@@ -1,0 +1,22 @@
+services:
+  hushcast:
+    image: ghcr.io/msitt/hushcast:latest
+    container_name: hushcast
+    ports:
+      - "4874:4874"
+    environment:
+      # Podcast clients will download feed + audio from this base URL.
+      - HUSHCAST_PUBLIC_URL=https://hushcast.example.com
+      # Log level is set in the UI (System page). Uncomment only to force a
+      # level for debugging; it locks the UI control while set.
+      #- HUSHCAST_LOG_LEVEL=DEBUG
+      # Runs as uid:gid 1000:1000 by default. Update PUID/PGID to change.
+      #- PUID=1000
+      #- PGID=1000
+    volumes:
+      # Point these at persistent storage on your host.
+      # /config = SQLite DB + settings (small; back this up)
+      # /data   = audio files, transcripts, scratch (bulky; replaceable)
+      - ./config:/config
+      - ./data:/data
+    restart: unless-stopped

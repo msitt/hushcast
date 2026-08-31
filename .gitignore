@@ -1,0 +1,17 @@
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# app data
+config/
+data/
+.env
+
+# per-machine Claude Code notes
+CLAUDE.local.md

@@ -1,0 +1,17 @@
+# The build needs: pyproject.toml, uv.lock, backend/, frontend/ (minus node_modules/dist).
+
+.git/
+config/
+data/
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+frontend/node_modules/
+frontend/dist/
+docs/
+tests/
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md

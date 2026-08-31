@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Test Podcast</title>
+    <link>https://example.com/show</link>
+    <description>A test show.</description>
+    <itunes:author>Test Author</itunes:author>
+    <itunes:image href="https://example.com/cover.jpg"/>
+    <item>
+      <title>Episode 3: Newest</title>
+      <guid isPermaLink="false">guid-ep3</guid>
+      <pubDate>Wed, 20 Aug 2025 10:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Third episode</p>]]></description>
+      <enclosure url="https://cdn.example.com/ep3.mp3" length="0" type="audio/mpeg"/>
+      <itunes:duration>1:02:30</itunes:duration>
+    </item>
+    <item>
+      <title>Episode 2: No GUID</title>
+      <pubDate>Wed, 13 Aug 2025 10:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep2.m4a" length="52428800" type="audio/x-m4a"/>
+      <itunes:duration>3600</itunes:duration>
+    </item>
+    <item>
+      <title>Episode 1: Multiple enclosures</title>
+      <guid>guid-ep1</guid>
+      <pubDate>Wed, 06 Aug 2025 10:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep1.pdf" length="1000" type="application/pdf"/>
+      <enclosure url="https://cdn.example.com/ep1.mp3" length="41943040" type="audio/mpeg"/>
+    </item>
+    <item>
+      <title>Broken: no enclosure</title>
+      <guid>guid-broken</guid>
+    </item>
+  </channel>
+</rss>
