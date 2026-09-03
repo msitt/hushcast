@@ -515,6 +515,7 @@ async def reprocess_episode(
     ep.status = state.QUEUED
     ep.status_detail = None
     ep.retry_count = 0
+    ep.last_failed_step = None
     await session.commit()
     worker.enqueue(episode_id)
     return {"ok": True}

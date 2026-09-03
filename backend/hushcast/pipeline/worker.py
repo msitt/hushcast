@@ -199,6 +199,7 @@ class Worker:
                 episode.status = state.PROCESSED
                 episode.status_detail = None
                 episode.retry_count = 0
+                episode.last_failed_step = None
                 await session.commit()
         log.info("episode %d processed", episode_id)
 
@@ -258,7 +259,13 @@ class Worker:
                 if episode is not None:
                     episode.status = state.FAILED
                     episode.status_detail = f"{step_name}: {error}"[:2000]
-                    episode.retry_count += 1
+                    # Budget is per-step: a step failing again extends the streak,
+                    # a different step failing starts a fresh one.
+                    if episode.last_failed_step == step_name:
+                        episode.retry_count += 1
+                    else:
+                        episode.last_failed_step = step_name
+                        episode.retry_count = 1
             await session.commit()
         return error is None
 

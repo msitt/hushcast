@@ -85,6 +85,9 @@ class Episode(Base):
     status: Mapped[str] = mapped_column(String(20), default="discovered", index=True)
     status_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Step name of the most recent failure. retry_count tracks consecutive
+    # failures of this same step.
+    last_failed_step: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     original_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     processed_path: Mapped[str | None] = mapped_column(Text, nullable=True)
