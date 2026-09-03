@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Auto-retry budget ("Max episode retries") is now tracked per pipeline step instead of per episode.
+- With "Keep originals" enabled, the retention cleanup no longer deletes an episode's cached original while it's still queued, active, or failed (only from `processed`/`expired`/`skipped` episodes now) - it could otherwise delete a still-needed source file out from under a stuck episode, permanently losing it if the source URL later goes stale.
 - Noisy third-party loggers are now kept at WARNING.
 - On narrow phone widths, the mobile nav bar no longer clips the "System" tab off screen (it's now a fixed icon-only row, same as the other tabs).
 

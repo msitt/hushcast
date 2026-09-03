@@ -213,12 +213,22 @@ async def cleanup() -> None:
                         ep.processed_path = None
             await session.commit()
 
-    # age out kept originals
+    # age out kept originals. Scoped to episodes done with the pipeline (won't
+    # be auto-retried or manually retried into needing the file again) - a
+    # queued/active/failed episode's original stays untouched no matter its
+    # age, since re-downloading it isn't guaranteed to work later (the source
+    # URL can rotate or die independently of the episode still being in the
+    # feed) and losing it would be a permanent, unrecoverable loss.
     if settings["keep_originals"]:
         cutoff = datetime.now(UTC).timestamp() - int(settings["keep_originals_days"]) * 86400
         async with factory() as session:
             rows = (
-                await session.execute(select(Episode).where(Episode.original_path.is_not(None)))
+                await session.execute(
+                    select(Episode).where(
+                        Episode.original_path.is_not(None),
+                        Episode.status.in_((state.PROCESSED, state.EXPIRED, state.SKIPPED)),
+                    )
+                )
             ).scalars().all()
             for ep in rows:
                 p = Path(ep.original_path)
@@ -226,9 +236,6 @@ async def cleanup() -> None:
                     p.unlink(missing_ok=True)
                     ep.original_path = None
             await session.commit()
-        for f in config.original_audio_dir.iterdir():
-            if f.is_file() and f.stat().st_mtime < cutoff:
-                f.unlink(missing_ok=True)
 
     # orphan sweep: files with no live episode row
     async with factory() as session:
