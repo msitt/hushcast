@@ -24,14 +24,17 @@ function Layout() {
           <span className="brand-name">Hushcast</span>
         </Link>
         <nav className="nav">
-          <NavLink to="/" end className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
-            <span className="nav-icon"><MicrophoneIcon size={18} weight="duotone" /></span> Podcasts
+          <NavLink to="/" end aria-label="Podcasts" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+            <span className="nav-icon"><MicrophoneIcon size={18} weight="duotone" /></span>
+            <span className="nav-label">Podcasts</span>
           </NavLink>
-          <NavLink to="/settings" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
-            <span className="nav-icon"><GearSixIcon size={18} weight="duotone" /></span> Settings
+          <NavLink to="/settings" aria-label="Settings" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+            <span className="nav-icon"><GearSixIcon size={18} weight="duotone" /></span>
+            <span className="nav-label">Settings</span>
           </NavLink>
-          <NavLink to="/system" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
-            <span className="nav-icon"><PulseIcon size={18} weight="duotone" /></span> System
+          <NavLink to="/system" aria-label="System" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+            <span className="nav-icon"><PulseIcon size={18} weight="duotone" /></span>
+            <span className="nav-label">System</span>
             {status && status.alert_count > 0 ? (
               <span className="nav-badge">{status.alert_count}</span>
             ) : null}
@@ -41,10 +44,12 @@ function Layout() {
           <button
             type="button"
             className="nav-link sidebar-signout"
+            aria-label="Sign out"
             title={auth.status.username ? `Signed in as ${auth.status.username}` : undefined}
             onClick={() => void auth.signOut()}
           >
-            <span className="nav-icon"><SignOutIcon size={18} weight="duotone" /></span> Sign out
+            <span className="nav-icon"><SignOutIcon size={18} weight="duotone" /></span>
+            <span className="nav-label">Sign out</span>
           </button>
         )}
       </aside>

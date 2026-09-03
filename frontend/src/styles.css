@@ -122,6 +122,10 @@ body,
   height: 100%;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -130,6 +134,7 @@ body {
   font-size: var(--text-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 a {
@@ -288,17 +293,20 @@ h2 {
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: space-between;
     padding: 10px var(--space-4);
   }
-  .brand {
-    padding: 0 var(--space-4) 0 0;
+  .brand-name {
+    display: none;
   }
   .nav {
     flex-direction: row;
   }
+  .nav-label {
+    display: none;
+  }
   .sidebar-signout {
     margin-top: 0;
-    margin-left: auto;
     width: auto;
   }
   .content {
