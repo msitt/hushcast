@@ -7,11 +7,17 @@ import httpx
 
 from ...audio import ffmpeg
 from ...db import session_factory
-from ...models import Episode
+from ...models import Episode, Feed
+from ...rss import fetch as rss_fetch
 from ...rss.fetch import USER_AGENT
 from ..context import EpisodeContext
 
 MIN_PLAUSIBLE_BYTES = 100_000  # anything smaller is an error page, not an episode
+
+# Statuses that plausibly mean "this exact URL is gone", worth refreshing
+# from the source feed and retrying once, rather than a transient server
+# hiccup the outer step-retry loop already handles.
+STALE_URL_STATUSES = {400, 401, 403, 404, 410, 451}
 
 EXT_BY_MIME = {
     "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/mp4": ".m4a", "audio/x-m4a": ".m4a",
@@ -51,15 +57,41 @@ async def _persist_original(ctx: EpisodeContext, path: Path) -> None:
             await session.commit()
 
 
-async def run(ctx: EpisodeContext) -> None:
-    existing = find_existing(ctx)
-    if existing:
-        ctx.original_path = existing
-        await _persist_original(ctx, existing)
-        ctx.log.append(f"download skipped: {existing.name} already present ({existing.stat().st_size} bytes)")
-        return
+async def _refresh_enclosure_url(ctx: EpisodeContext) -> str | None:
+    """Re-poll the source feed for this episode's current enclosure URL.
 
-    url = ctx.source_enclosure_url
+    Retries always replay `ctx.source_enclosure_url`, which is captured once
+    at episode discovery and never otherwise refreshed - so a host that
+    rotates or expires media URLs (common with dynamic ad insertion) leaves
+    the episode permanently stuck on a dead link. Returns the new URL if the
+    episode is still in the feed and its URL has changed, else None (feed
+    fetch failed, episode no longer listed, or the URL is unchanged).
+    """
+    async with session_factory()() as session:
+        feed = await session.get(Feed, ctx.feed_id)
+    if feed is None:
+        return None
+    try:
+        parsed = await rss_fetch.fetch(feed.source_url)
+    except Exception as exc:  # noqa: BLE001 - best effort, fall through to the original error
+        ctx.log.append(f"could not re-poll source feed for a fresh URL: {exc}")
+        return None
+    match = next((e for e in parsed.episodes if e.guid == ctx.guid), None)
+    if match is None:
+        ctx.log.append("episode is no longer listed in the source feed, cannot refresh URL")
+        return None
+    if match.enclosure_url == ctx.source_enclosure_url:
+        return None
+    async with session_factory()() as session:
+        episode = await session.get(Episode, ctx.episode_id)
+        if episode is not None:
+            episode.source_enclosure_url = match.enclosure_url
+            await session.commit()
+    ctx.log.append("source URL has changed since discovery, refreshed from feed and retrying")
+    return match.enclosure_url
+
+
+async def _fetch(ctx: EpisodeContext, url: str) -> tuple[Path, int]:
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(300.0, connect=30.0), follow_redirects=True
     ) as client, client.stream("GET", url, headers={"User-Agent": USER_AGENT}) as resp:
@@ -77,6 +109,28 @@ async def run(ctx: EpisodeContext) -> None:
         part.unlink(missing_ok=True)
         raise RuntimeError(f"downloaded file is implausibly small ({size} bytes) from {url}")
     part.replace(dest)
+    return dest, size
+
+
+async def run(ctx: EpisodeContext) -> None:
+    existing = find_existing(ctx)
+    if existing:
+        ctx.original_path = existing
+        await _persist_original(ctx, existing)
+        ctx.log.append(f"download skipped: {existing.name} already present ({existing.stat().st_size} bytes)")
+        return
+
+    try:
+        dest, size = await _fetch(ctx, ctx.source_enclosure_url)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code not in STALE_URL_STATUSES:
+            raise
+        new_url = await _refresh_enclosure_url(ctx)
+        if new_url is None:
+            raise
+        ctx.source_enclosure_url = new_url
+        dest, size = await _fetch(ctx, new_url)
+
     ctx.original_path = dest
     await _persist_original(ctx, dest)
     ctx.metrics["download_bytes"] = size

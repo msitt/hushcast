@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New "Max kept days" setting: expire processed audio a number of days after processing finished. Works alongside "Max kept episodes", an episode expires when it exceeds either limit.
+- Download now recovers from a dead or rotated source URL: on a 4xx-ish failure it re-polls the source feed for the episode's current enclosure URL and retries once, instead of permanently failing episodes whose host uses expiring or dynamic-ad-insertion links.
 
 ### Changed
 
