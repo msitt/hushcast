@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-03
+
 ### Added
 
 - New "Max kept days" setting: expire processed audio a number of days after processing finished. Works alongside "Max kept episodes", an episode expires when it exceeds either limit.
