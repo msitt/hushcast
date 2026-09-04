@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeftIcon, CaretDownIcon, CaretLeftIcon, CaretRightIcon, WarningIcon } from "@phosphor-icons/react";
 import {
+  ACTIVE_STATUSES,
   api,
   type CueOut,
   type EpisodeDetailOut,
@@ -835,11 +836,24 @@ export function EpisodeDetailPage() {
   const [jump, setJump] = useState<{ t: number; nonce: number } | null>(null);
   const jumpToTranscript = (t: number) => setJump((j) => ({ t, nonce: (j?.nonce ?? 0) + 1 }));
 
+  // The global `processing` flag is polled separately every 5s, so a fast
+  // pipeline (whitelisted feeds, tiny episodes) can flip it true then false
+  // between two of those polls without this page's own poll ever firing,
+  // leaving a stale "running" job on screen whose elapsed time keeps ticking
+  // (recomputed from Date.now() on every unrelated re-render) even though the
+  // step actually finished. Fall back to the episode's own last-known status
+  // so we keep polling until we've confirmed it's actually settled. Starts
+  // true so the first load after an action (e.g. Retry) isn't gated on it.
+  const [locallyActive, setLocallyActive] = useState(true);
   const { data: ep, error, loading, reload } = useAsyncData<EpisodeDetailOut>(
     () => api.getEpisode(id!),
     [id],
-    { intervalMs: processing ? 5000 : 0 }
+    { intervalMs: processing || locallyActive ? 5000 : 0 }
   );
+  useEffect(() => {
+    if (!ep) return;
+    setLocallyActive(ACTIVE_STATUSES.includes(ep.status) || ep.jobs.some((j) => j.started_at && !j.finished_at));
+  }, [ep]);
 
   const run = async (label: string, fn: () => Promise<{ ok: boolean }>) => {
     setBusy(true);

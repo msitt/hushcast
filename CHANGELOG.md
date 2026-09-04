@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The episode detail page's job list no longer gets stuck showing a finished job as running with its elapsed time ticking up forever.
+
 ## [1.1.0] - 2026-09-03
 
 ### Added
