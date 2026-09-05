@@ -15,6 +15,7 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "python-slugify>=8.0",
+    "apprise>=1.9",
 ]
 
 [dependency-groups]

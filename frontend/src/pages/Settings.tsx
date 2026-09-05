@@ -9,13 +9,18 @@ import { CopyButton } from "../components/CopyButton";
 
 const SECRET_MASK = "••••••••";
 
+// Notifications has its own nested-object/array fields and its own save flow
+// (see NotificationsSection), kept out of the generic text/number/checkbox form.
+type NotificationKeys = "notification_urls" | "notification_events";
+
 type Draft = {
-  [K in keyof Settings]: Settings[K] extends boolean ? boolean : string;
+  [K in keyof Omit<Settings, NotificationKeys>]: Settings[K] extends boolean ? boolean : string;
 };
 
 function toDraft(s: Settings): Draft {
   const d = {} as Record<string, string | boolean>;
   for (const [k, v] of Object.entries(s)) {
+    if (k === "notification_urls" || k === "notification_events") continue;
     if (typeof v === "boolean") d[k] = v;
     else if (k === "transcription_extra_params") d[k] = JSON.stringify(v ?? {}, null, 2);
     else d[k] = v == null ? "" : String(v);
@@ -152,6 +157,114 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function testBadge(r?: TestResult) {
+  return (
+    r && (
+      <span className={`test-result ${r.ok ? "test-ok" : "test-fail"}`}>
+        {r.ok ? <CheckIcon size={14} weight="bold" /> : <XIcon size={14} weight="bold" />} {r.message}
+      </span>
+    )
+  );
+}
+
+function urlsFromText(text: string): string[] {
+  return text.split("\n").map((s) => s.trim()).filter(Boolean);
+}
+
+function NotificationsSection({ settings }: { settings: Settings }) {
+  const { toastError, toastSuccess } = useToasts();
+  const [urlsText, setUrlsText] = useState(settings.notification_urls.join("\n"));
+  const [events, setEvents] = useState(settings.notification_events);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult>();
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const updated = await api.putSettings({
+        notification_events: events,
+        notification_urls: urlsFromText(urlsText),
+      });
+      setUrlsText(updated.notification_urls.join("\n"));
+      setEvents(updated.notification_events);
+      toastSuccess("Notification settings saved");
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const runTest = async () => {
+    setTesting(true);
+    try {
+      setTestResult(await api.testNotifications({ notification_urls: urlsFromText(urlsText) }));
+    } catch (err) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Section title="Notifications">
+      <p className="field-hint">
+        Get pinged when something needs your attention: an episode has exhausted its retries, or a source feed has
+        been failing to poll for a while. Delivered via{" "}
+        <a href="https://github.com/caronc/apprise#popular-notification-services" target="_blank" rel="noreferrer">
+          Apprise
+        </a>
+        , which supports Discord, Slack, ntfy, email, Telegram, a generic webhook, and many others.
+      </p>
+      <label className="field">
+        <span className="field-label">Notification URLs</span>
+        <textarea
+          className="mono"
+          rows={3}
+          placeholder="discord://webhook_id/webhook_token"
+          value={urlsText}
+          onChange={(e) => setUrlsText(e.target.value)}
+        />
+        <span className="field-hint">
+          One Apprise URL per line. See the{" "}
+          <a href="https://appriseit.com/services/" target="_blank" rel="noreferrer">
+            Apprise documentation
+          </a>{" "}
+          for the syntax each service expects. Leave empty to disable notifications entirely.
+        </span>
+      </label>
+      <div className="form-row">
+        <label className="field field-inline">
+          <input
+            type="checkbox"
+            checked={events.episode_retries_exhausted}
+            onChange={(e) => setEvents((ev) => ({ ...ev, episode_retries_exhausted: e.target.checked }))}
+          />
+          <span>Episode retries exhausted</span>
+        </label>
+        <label className="field field-inline">
+          <input
+            type="checkbox"
+            checked={events.feed_poll_failing}
+            onChange={(e) => setEvents((ev) => ({ ...ev, feed_poll_failing: e.target.checked }))}
+          />
+          <span>Feed polling failing repeatedly</span>
+        </label>
+      </div>
+      <div className="test-row">
+        <button type="button" className="btn" disabled={testing} onClick={() => void runTest()}>
+          {testing ? "Sending…" : "Send test notification"}
+        </button>
+        {testBadge(testResult)}
+        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </Section>
+  );
+}
+
 export function SettingsPage() {
   const { data: settings, error, loading } = useAsyncData<Settings>(() => api.getSettings(), []);
   const [original, setOriginal] = useState<Draft | null>(null);
@@ -175,15 +288,15 @@ export function SettingsPage() {
   }, [settings]);
 
   if (error && !draft) return <div className="page"><div className="inline-error">{error}</div></div>;
-  if (loading || !draft || !original) return <div className="page loading">Loading settings…</div>;
+  if (loading || !draft || !original || !settings) return <div className="page loading">Loading settings…</div>;
 
-  const set = <K extends keyof Settings>(key: K, value: string | boolean) => {
+  const set = <K extends keyof Draft>(key: K, value: string | boolean) => {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
     if (key === "transcription_extra_params") setJsonError(null);
   };
 
   const text = (
-    key: keyof Settings,
+    key: keyof Draft,
     label: string,
     opts?: { type?: string; step?: string; placeholder?: string; hint?: string }
   ) => (
@@ -200,11 +313,11 @@ export function SettingsPage() {
     </label>
   );
 
-  const num = (key: keyof Settings, label: string, opts?: { step?: string; hint?: string }) =>
+  const num = (key: keyof Draft, label: string, opts?: { step?: string; hint?: string }) =>
     text(key, label, { type: "number", step: opts?.step ?? "1", hint: opts?.hint });
 
   const select = (
-    key: keyof Settings,
+    key: keyof Draft,
     label: string,
     options: { value: string; label: string }[],
     hint?: string
@@ -222,7 +335,7 @@ export function SettingsPage() {
     </label>
   );
 
-  const check = (key: keyof Settings, label: string, hint?: string) => (
+  const check = (key: keyof Draft, label: string, hint?: string) => (
     <div className="field">
       <label className="field field-inline">
         <input type="checkbox" checked={draft[key] as boolean} onChange={(e) => set(key, e.target.checked)} />
@@ -234,7 +347,7 @@ export function SettingsPage() {
 
   const buildChanged = (): Partial<Settings> | null => {
     const changed: Record<string, unknown> = {};
-    for (const key of Object.keys(draft) as (keyof Settings)[]) {
+    for (const key of Object.keys(draft) as (keyof Draft)[]) {
       if (key === "feed_token") continue;
       const cur = draft[key];
       if (cur === original[key]) continue;
@@ -332,13 +445,6 @@ export function SettingsPage() {
       setRegenBusy(false);
     }
   };
-
-  const testBadge = (r?: TestResult) =>
-    r && (
-      <span className={`test-result ${r.ok ? "test-ok" : "test-fail"}`}>
-        {r.ok ? <CheckIcon size={14} weight="bold" /> : <XIcon size={14} weight="bold" />} {r.message}
-      </span>
-    );
 
   return (
     <div className="page">
@@ -622,6 +728,8 @@ export function SettingsPage() {
           </button>
         </div>
       </Section>
+
+      <NotificationsSection settings={settings} />
 
       <AuthSection />
 

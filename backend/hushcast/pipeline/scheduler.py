@@ -12,6 +12,7 @@ from .. import settings_store
 from ..config import get_config
 from ..db import session_factory
 from ..models import Episode, Feed
+from ..notifications import NotificationEvent, notify
 from ..rss import fetch as rss_fetch
 from . import state
 from .worker import worker
@@ -22,6 +23,10 @@ scheduler = AsyncIOScheduler()
 
 POLL_JOB_ID = "poll_feeds"
 CLEANUP_JOB_ID = "cleanup"
+
+# Consecutive poll failures before we notify. A feed self-heals from one-off
+# blips via the next poll, this is for "the source has been broken for hours".
+FEED_POLL_FAIL_THRESHOLD = 5
 
 
 def _aware(dt: datetime | None) -> datetime | None:
@@ -131,7 +136,18 @@ async def poll_feed(feed_id: int) -> None:
             if feed is not None:
                 feed.poll_error = str(exc)[:2000]
                 feed.last_polled_at = datetime.now(UTC)
+                feed.consecutive_poll_failures += 1
+                title = feed.title or feed.source_url
+                fail_count = feed.consecutive_poll_failures
                 await session.commit()
+                if fail_count == FEED_POLL_FAIL_THRESHOLD:
+                    settings = await settings_store.get_all(session)
+                    notify(
+                        NotificationEvent.FEED_POLL_FAILING,
+                        "hushcast: feed polling is failing",
+                        f'"{title}" has failed to poll {fail_count} times in a row: {str(exc)[:500]}',
+                        settings,
+                    )
         raise
 
     async with factory() as session:
@@ -140,6 +156,7 @@ async def poll_feed(feed_id: int) -> None:
             return
         feed.last_polled_at = datetime.now(UTC)
         feed.poll_error = None
+        feed.consecutive_poll_failures = 0
         if parsed.not_modified:
             await session.commit()
             return

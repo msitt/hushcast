@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import loglevel, settings_store
 from ..detection.llm import LLMClient
+from ..notifications import send_test
 from ..pipeline import scheduler
 from ..transcription.openai_compat import build_transcriber
 from .deps import get_session
@@ -87,3 +88,12 @@ async def test_llm(
         return {"ok": True, "message": "LLM responded with valid JSON"}
     except Exception as exc:
         return {"ok": False, "message": str(exc)}
+
+
+@router.post("/test/notifications")
+async def test_notifications(
+    overrides: dict[str, Any] | None = None, session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
+    settings = await _effective_settings(session, overrides)
+    ok, message = await send_test(settings["notification_urls"])
+    return {"ok": ok, "message": message}

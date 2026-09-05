@@ -306,6 +306,8 @@ export interface Settings {
   mp3_quality: string;
   log_level: string;
   feed_token: string;
+  notification_urls: string[];
+  notification_events: { episode_retries_exhausted: boolean; feed_poll_failing: boolean };
 }
 
 export interface LlmCallSummary {
@@ -443,6 +445,8 @@ export const api = {
     post<TestResult>("/api/settings/test/transcription", overrides ?? {}),
   testLlm: (overrides?: Partial<Settings>) =>
     post<TestResult>("/api/settings/test/llm", overrides ?? {}),
+  testNotifications: (overrides?: Partial<Settings>) =>
+    post<TestResult>("/api/settings/test/notifications", overrides ?? {}),
   regenerateToken: () => post<{ feed_token: string }>("/api/settings/regenerate-token"),
   systemStatus: () => get<SystemStatus>("/api/system/status"),
   systemInfo: () => get<SystemInfo>("/api/system/info"),

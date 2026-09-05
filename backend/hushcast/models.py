@@ -57,6 +57,9 @@ class Feed(Base):
     last_modified: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_polled_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     poll_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # consecutive failed polls, reset on the next success. Drives the
+    # feed_poll_failing notification (a single blip shouldn't page anyone).
+    consecutive_poll_failures: Mapped[int] = mapped_column(Integer, default=0)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     whitelisted: Mapped[bool] = mapped_column(Boolean, default=False)
     detection_hints: Mapped[str | None] = mapped_column(Text, nullable=True)  # user-written, never touched by AI

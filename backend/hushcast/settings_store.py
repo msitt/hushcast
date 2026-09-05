@@ -103,6 +103,12 @@ DEFAULTS: dict[str, Any] = {
     "log_level": "INFO",
     # serving
     "feed_token": "",  # generated at first boot
+    # notifications: Apprise URLs (Discord, Slack, ntfy, email, generic webhook, ...)
+    "notification_urls": [],
+    "notification_events": {
+        "episode_retries_exhausted": True,
+        "feed_poll_failing": True,
+    },
 }
 
 SECRET_KEYS = {"transcription_api_key", "llm_api_key"}

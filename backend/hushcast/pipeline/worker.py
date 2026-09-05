@@ -15,6 +15,7 @@ from ..config import get_config
 from ..db import session_factory
 from ..errors import RateLimitError
 from ..models import Episode, Feed, Job, utcnow
+from ..notifications import NotificationEvent, notify
 from . import state
 from .context import EpisodeContext
 from .steps import cues, cut, detect, download, finalize, transcribe
@@ -266,6 +267,21 @@ class Worker:
                     else:
                         episode.last_failed_step = step_name
                         episode.retry_count = 1
+                    # Notify exactly once, on the attempt that exhausts the budget
+                    # (a manual retry resets retry_count to 0, so this can fire again
+                    # on a later streak). Past this point requeue_failed() stops
+                    # auto-retrying it, so it's stuck until a human looks.
+                    # max(..., 1): retries=0 means "never auto-retry", so the
+                    # first failure is already terminal.
+                    max_retries = max(1, int(ctx.settings["max_episode_retries"]))
+                    if episode.retry_count == max_retries:
+                        notify(
+                            NotificationEvent.EPISODE_RETRIES_EXHAUSTED,
+                            "hushcast: episode needs attention",
+                            f'"{ctx.episode_title}" ({ctx.podcast_title}) failed {step_name} '
+                            f"{max_retries} time(s) in a row and will not be auto-retried: {error}",
+                            ctx.settings,
+                        )
             await session.commit()
         return error is None
 
