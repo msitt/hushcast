@@ -1318,6 +1318,31 @@ select {
 .settings-section {
   max-width: 760px;
 }
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-6);
+  max-width: 760px;
+}
+.settings-tab {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+}
+.settings-tab:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.settings-tab.active {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
 .save-bar {
   display: flex;
   align-items: center;

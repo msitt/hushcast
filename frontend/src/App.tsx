@@ -9,7 +9,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { PodcastsPage } from "./pages/Podcasts";
 import { PodcastDetailPage } from "./pages/PodcastDetail";
 import { EpisodeDetailPage } from "./pages/EpisodeDetail";
-import { SettingsPage } from "./pages/Settings";
+import { SettingsLayout } from "./pages/settings/SettingsLayout";
 import { SystemPage } from "./pages/System";
 import { useSystemStatus } from "./components/SystemStatusContext";
 
@@ -76,7 +76,7 @@ export default function App() {
             <Route path="/" element={<PodcastsPage />} />
             <Route path="/podcasts/:id" element={<PodcastDetailPage />} />
             <Route path="/episodes/:id" element={<EpisodeDetailPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/*" element={<SettingsLayout />} />
             <Route path="/system" element={<SystemPage />} />
             <Route path="*" element={<div className="empty-hero"><h2>Not found</h2><p>That page does not exist.</p></div>} />
           </Route>

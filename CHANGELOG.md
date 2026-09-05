@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Notifications: get pinged when something needs your attention (an episode exhausts its retries, or a source feed keeps failing to poll), delivered via [Apprise](https://github.com/caronc/apprise) to Discord, Slack, ntfy, email, Telegram, a generic webhook, or any of its other supported services. Configured under Settings → Notifications, with a "Send test notification" button.
 
+### Changed
+
+- Settings page is reorganized.
+
 ### Fixed
 
 - The episode detail page's job list no longer gets stuck showing a finished job as running with its elapsed time ticking up forever.
