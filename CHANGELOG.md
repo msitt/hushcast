@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-05
+
 ### Added
 
 - Notifications: get pinged when something needs your attention (an episode exhausts its retries, or a source feed keeps failing to poll), delivered via [Apprise](https://github.com/caronc/apprise) to Discord, Slack, ntfy, email, Telegram, a generic webhook, or any of its other supported services. Configured under Settings → Notifications, with a "Send test notification" button.
