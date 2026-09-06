@@ -347,6 +347,19 @@ export interface FeedCreate {
   detection_hints?: string;
 }
 
+export interface SearchResult {
+  title: string;
+  author: string | null;
+  feed_url: string;
+  artwork_url: string | null;
+  genre: string | null;
+  episode_count: number | null;
+  latest_episode_at: string | null;
+  explicit: boolean;
+  feed_host: string | null;
+  already_added: boolean;
+}
+
 export interface FeedPatch {
   enabled?: boolean;
   whitelisted?: boolean;
@@ -370,7 +383,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: init?.body ? { "Content-Type": "application/json" } : undefined,
       ...init,
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new ApiError(0, "Network error: is the server running?");
   }
   if (!res.ok) {
@@ -409,6 +423,8 @@ export const api = {
     request<FeedOut>(`/api/feeds/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteFeed: (id: number | string) => request<void>(`/api/feeds/${id}`, { method: "DELETE" }),
   pollFeed: (id: number | string) => post<{ ok: boolean }>(`/api/feeds/${id}/poll`),
+  searchPodcasts: (q: string, signal?: AbortSignal) =>
+    request<SearchResult[]>(`/api/search?q=${encodeURIComponent(q)}`, { signal }),
   listEpisodes: (feedId: number | string, params: { status?: string; page?: number; page_size?: number }) => {
     const q = new URLSearchParams();
     if (params.status) q.set("status", params.status);

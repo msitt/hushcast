@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Search for podcasts by name when adding one. The Add podcast dialog now searches the Apple Podcasts directory as you type and shows matches with artwork, publisher, genre, episode count, latest episode age, and feed host so you can pick the right one when several shows share a name. Pasting an RSS URL still works as before.
+
 ## [1.2.1] - 2026-09-06
 
 ### Fixed

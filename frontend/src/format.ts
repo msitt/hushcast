@@ -66,6 +66,23 @@ export function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+/** ISO date string → coarse relative age, e.g. "today", "3 days ago", "2 years ago". */
+export function formatAge(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return "-";
+  const days = Math.floor((Date.now() - t) / 86_400_000);
+  if (days < 1) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
+  if (days < 365) {
+    const months = Math.floor(days / 30);
+    return `${months} month${months === 1 ? "" : "s"} ago`;
+  }
+  const years = Math.floor(days / 365);
+  return `${years} year${years === 1 ? "" : "s"} ago`;
+}
+
 /** Elapsed between two ISO timestamps, e.g. "1m 23s". */
 export function formatElapsed(start: string | null, end: string | null): string {
   if (!start) return "-";

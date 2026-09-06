@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__, auth, logbuffer, loglevel, settings_store
 from .api import episodes, feeds, system
+from .api import search as search_api
 from .api import settings as settings_api
 from .config import get_config
 from .db import dispose_db, init_db, session_factory
@@ -69,6 +70,7 @@ app.include_router(auth.router)
 app.include_router(feeds.router)
 app.include_router(episodes.router)
 app.include_router(settings_api.router)
+app.include_router(search_api.router)
 app.include_router(system.router)
 app.include_router(public_routes.router)
 

@@ -1,81 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HeadphonesIcon, MicrophoneIcon, PlusIcon } from "@phosphor-icons/react";
 import { api, type FeedOut } from "../api/client";
 import { useAsyncData } from "../hooks";
 import { useProcessingActive } from "../components/SystemStatusContext";
 import { useToasts } from "../components/Toasts";
-import { Modal } from "../components/Modal";
+import { AddPodcastDialog } from "../components/AddPodcastDialog";
 import { CopyButton } from "../components/CopyButton";
-
-function AddPodcastDialog({ onClose, onAdded }: { onClose: () => void; onAdded: (feed: FeedOut) => void }) {
-  const [url, setUrl] = useState("");
-  const [whitelisted, setWhitelisted] = useState(false);
-  const [hints, setHints] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!url.trim()) {
-      setError("RSS URL is required.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const feed = await api.createFeed({
-        url: url.trim(),
-        ...(whitelisted ? { whitelisted: true } : {}),
-        ...(hints.trim() !== "" ? { detection_hints: hints.trim() } : {}),
-      });
-      onAdded(feed);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal title="Add podcast" onClose={onClose}>
-      <form onSubmit={submit} className="form-stack">
-        {error && <div className="inline-error">{error}</div>}
-        <label className="field">
-          <span className="field-label">RSS feed URL</span>
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/feed.xml"
-            autoFocus
-            required
-          />
-        </label>
-        <label className="field field-inline">
-          <input type="checkbox" checked={whitelisted} onChange={(e) => setWhitelisted(e.target.checked)} />
-          <span>Whitelisted (pass episodes through without ad removal)</span>
-        </label>
-        <label className="field">
-          <span className="field-label">Detection hints (optional)</span>
-          <textarea
-            rows={3}
-            value={hints}
-            onChange={(e) => setHints(e.target.value)}
-            placeholder="e.g. Host reads ads for mattress brands. Sponsor breaks start with a jingle"
-          />
-        </label>
-        <div className="modal-actions">
-          <button type="button" className="btn" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? "Adding…" : "Add podcast"}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
 
 function FeedCard({ feed }: { feed: FeedOut }) {
   const { toastInfo } = useToasts();
@@ -166,7 +97,7 @@ export function PodcastsPage() {
           <div className="empty-icon"><HeadphonesIcon size={36} weight="duotone" /></div>
           <h2>No podcasts yet</h2>
           <p>
-            Add an RSS feed and hushcast will download episodes, transcribe them, find the ads, and serve you a
+            Search for a podcast or add an RSS feed, and hushcast will download episodes, transcribe them, find the ads, and serve you a
             clean feed to subscribe to.
           </p>
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>

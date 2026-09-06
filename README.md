@@ -101,7 +101,7 @@ This only sets ownership on `/config` and `/data` themselves, not recursively, s
 Open the web UI. The first visit creates your login, then:
 
 1. Go to **Settings** and enter your transcription and LLM endpoints.
-2. Add a podcast by its RSS feed URL. You can use [Podcast RSS Feed Finder](https://rss.com/tools/find-my-feed/).
+2. Go to the home page and add a podcast.
 3. Copy the podcast's subscribe URL into your podcast app.
 
 New episodes process automatically. Existing back-catalog episodes aren't processed by default. Queue any you want from the UI.
