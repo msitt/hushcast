@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# Images: app icons (frontend/public) and docs screenshots
+*.png binary
+*.ico binary
+*.jpg binary
+*.gif binary
+
+# Hide generated files by default on GitHub
+frontend/package-lock.json linguist-generated
+uv.lock linguist-generated
