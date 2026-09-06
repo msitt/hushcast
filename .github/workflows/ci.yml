@@ -27,6 +27,9 @@ jobs:
       - name: Lint
         run: uv run ruff check backend tests
 
+      - name: Check changelog fragments
+        run: python3 .github/scripts/prepare_release.py --check
+
       - name: Run tests
         run: uv run pytest
 

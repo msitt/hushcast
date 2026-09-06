@@ -5,11 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-
-- Search for podcasts by name when adding one. The Add podcast dialog now searches the Apple Podcasts directory as you type and shows matches with artwork, publisher, genre, episode count, latest episode age, and feed host so you can pick the right one when several shows share a name. Pasting an RSS URL still works as before.
+Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
 ## [1.2.1] - 2026-09-06
 
