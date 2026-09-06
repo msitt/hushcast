@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed a migration bug introduced in 1.2.0 that broke startup for existing installs: `Cannot add a NOT NULL column with default value NULL` on `feeds.consecutive_poll_failures`.
+
 ## [1.2.0] - 2026-09-05
 
 ### Added
