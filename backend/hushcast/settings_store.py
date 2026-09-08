@@ -113,7 +113,25 @@ DEFAULTS: dict[str, Any] = {
 
 SECRET_KEYS = {"transcription_api_key", "llm_api_key"}
 
+# Blank means "use the default", not "use an empty value". Deliberately narrow:
+# feed_token and the hint fields all treat empty as a real, meaningful value.
+RESET_ON_EMPTY = frozenset({"detection_prompt"})
+
 _cache: dict[str, Any] | None = None
+
+
+def _resets_to_default(key: str, value: Any) -> bool:
+    return key in RESET_ON_EMPTY and isinstance(value, str) and not value.strip()
+
+
+def merge_settings(stored: dict[str, Any]) -> dict[str, Any]:
+    """Effective settings: DEFAULTS overlaid with stored values."""
+    merged = dict(DEFAULTS)
+    for key, value in stored.items():
+        if key not in DEFAULTS or _resets_to_default(key, value):
+            continue
+        merged[key] = value
+    return merged
 
 
 def invalidate_cache() -> None:
@@ -126,9 +144,7 @@ async def get_all(session: AsyncSession) -> dict[str, Any]:
     global _cache
     if _cache is None:
         stored = {s.key: json.loads(s.value) for s in (await session.execute(select(Setting))).scalars()}
-        merged = dict(DEFAULTS)
-        merged.update({k: v for k, v in stored.items() if k in DEFAULTS})
-        _cache = merged
+        _cache = merge_settings(stored)
     return dict(_cache)
 
 
@@ -138,6 +154,11 @@ async def set_many(session: AsyncSession, values: dict[str, Any]) -> None:
             raise KeyError(f"unknown setting: {key}")
         if key in SECRET_KEYS and value == MASK:
             continue  # unchanged mask -> keep stored value
+        if _resets_to_default(key, value):
+            row = await session.get(Setting, key)
+            if row is not None:
+                await session.delete(row)  # fall back to DEFAULTS instead of storing blank
+            continue
         row = await session.get(Setting, key)
         encoded = json.dumps(value)
         if row is None:

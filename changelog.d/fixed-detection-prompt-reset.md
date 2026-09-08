@@ -1,0 +1,1 @@
+- Clearing the detection prompt in settings now really does restore the built-in default. It previously saved an empty prompt, which degraded ad detection until you pasted something back in.
