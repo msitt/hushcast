@@ -11,10 +11,13 @@ _CUE_LABELS = {"silence": "SILENCE", "noenergy": "SILENCE", "music": "MUSIC", "n
 
 CUE_EXPLANATION = (
     "Some lines are audio cues, like `[122.4-127.6] [MUSIC] (5.2s)`: they mark "
-    "non-speech regions (MUSIC, SILENCE, NOISE) detected in the audio. Ads are "
-    "often preceded or followed by music stings or silence. Use cues to judge "
-    "where an ad break starts and ends. Cue timestamps are context only: a "
-    "segment's start/end must still come from transcript lines, never from cue lines."
+    "non-speech regions (MUSIC, SILENCE, NOISE) detected in the audio rather than "
+    "spoken content. They are approximate, so a cue may overlap or sit inside a "
+    "transcript line. Ads are often preceded or followed by music stings or silence, "
+    "so use cues to judge where an ad break starts and ends. A cue on its own is not "
+    "evidence of an ad, and an ad boundary with no cue near it is still valid. Cue "
+    "timestamps are context only: a segment's start/end must still come from "
+    "transcript lines, never from cue lines."
 )
 
 
