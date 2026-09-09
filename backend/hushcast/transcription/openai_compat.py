@@ -29,13 +29,9 @@ MIME_BY_EXT = {
 }
 
 
-def _distribute_words(segments: list[TranscriptSegment], raw_words: list[Any]) -> None:
-    """Assign a payload-level word list to segments by time (word midpoint).
-
-    A word whose midpoint falls between two segments (timestamp drift) goes to
-    whichever segment edge is nearer.
-    """
-    words = [
+def _parse_words(raw_words: list[Any]) -> list[Word]:
+    """Word objects from a provider's raw word list, skipping unusable entries."""
+    return [
         Word(
             text=w.get("word") or w.get("text") or "",
             start=float(w["start"]),
@@ -45,6 +41,49 @@ def _distribute_words(segments: list[TranscriptSegment], raw_words: list[Any]) -
         for w in raw_words
         if isinstance(w, dict) and w.get("start") is not None
     ]
+
+
+def _segment_from_run(run: list[Word]) -> TranscriptSegment:
+    return TranscriptSegment(
+        text=" ".join(w.text for w in run),
+        start=run[0].start,
+        end=max(w.end for w in run),
+        speaker=run[0].speaker,
+        words=list(run),
+    )
+
+
+def _segments_from_words(raw_words: list[Any]) -> list[TranscriptSegment]:
+    """Build segments for a provider that times words but returns no segments.
+
+    Gemini-style transcription endpoints answer with a flat word array and no
+    segmentation at all, which leaves detection with no boundary to cut at. One
+    segment per run of consecutive same-speaker words gives it something real,
+    and sentence splitting divides those further. The synthesized text is joined
+    from the same words it carries, so the two align token for token and the
+    split lands on exact word timings rather than prorated ones.
+    """
+    words = [w for w in _parse_words(raw_words) if w.text]
+    if not words:
+        return []
+    segments: list[TranscriptSegment] = []
+    run: list[Word] = []
+    for w in sorted(words, key=lambda w: (w.start, w.end)):
+        if run and w.speaker != run[0].speaker:
+            segments.append(_segment_from_run(run))
+            run = []
+        run.append(w)
+    segments.append(_segment_from_run(run))
+    return segments
+
+
+def _distribute_words(segments: list[TranscriptSegment], raw_words: list[Any]) -> None:
+    """Assign a payload-level word list to segments by time (word midpoint).
+
+    A word whose midpoint falls between two segments (timestamp drift) goes to
+    whichever segment edge is nearer.
+    """
+    words = _parse_words(raw_words)
     if not words or not segments:
         return
     ordered = sorted(segments, key=lambda s: (s.start, s.end))
@@ -160,7 +199,9 @@ class OpenAICompatTranscriber(TranscriptionProvider):
                     words=words,
                 )
             )
-        if top_words and not any(s.words for s in segments):
+        if not segments and top_words:
+            segments = _segments_from_words(top_words)
+        elif top_words and not any(s.words for s in segments):
             _distribute_words(segments, top_words)
 
         # Some providers echo a placeholder speaker (e.g. "SPEAKER_00") on every

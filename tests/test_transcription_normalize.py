@@ -136,3 +136,88 @@ def test_empty_payload():
     t = normalize({})
     assert t.segments == []
     assert t.duration == 0.0
+
+
+def test_words_only_payload_synthesizes_segments():
+    # Gemini-style: word timings and text, no segments at all
+    t = normalize({
+        "text": "hello there world",
+        "duration": 12.0,
+        "words": [
+            {"word": "hello", "start": 0.5, "end": 1.0, "speaker": "spk:0"},
+            {"word": "there", "start": 1.2, "end": 1.8, "speaker": "spk:0"},
+            {"word": "world", "start": 11.0, "end": 11.5, "speaker": "spk:0"},
+        ],
+    })
+    assert len(t.segments) == 1
+    assert t.segments[0].text == "hello there world"
+    assert (t.segments[0].start, t.segments[0].end) == (0.5, 11.5)
+    assert [w.text for w in t.segments[0].words] == ["hello", "there", "world"]
+    assert t.duration == 12.0
+
+
+def test_words_only_payload_splits_on_speaker_change():
+    t = normalize({
+        "words": [
+            {"word": "hi", "start": 0.0, "end": 0.5, "speaker": "spk:0"},
+            {"word": "there", "start": 0.5, "end": 1.0, "speaker": "spk:0"},
+            {"word": "hello", "start": 2.0, "end": 2.4, "speaker": "spk:1"},
+            {"word": "again", "start": 3.0, "end": 3.6, "speaker": "spk:0"},
+        ],
+    })
+    assert [s.text for s in t.segments] == ["hi there", "hello", "again"]
+    assert [s.speaker for s in t.segments] == ["spk:0", "spk:1", "spk:0"]
+    assert (t.segments[0].start, t.segments[0].end) == (0.0, 1.0)
+    assert t.duration == 3.6  # falls back to last segment end
+
+
+def test_words_only_single_speaker_stripped():
+    t = normalize({
+        "words": [
+            {"word": "one", "start": 0.0, "end": 0.5, "speaker": "spk:0"},
+            {"word": "two", "start": 0.5, "end": 1.0, "speaker": "spk:0"},
+        ],
+    })
+    assert t.segments[0].speaker is None
+    assert all(w.speaker is None for w in t.segments[0].words)
+
+
+def test_words_only_payload_aligns_for_sentence_splitting():
+    # the synthesized text must tokenize 1:1 with its words so the sentence
+    # splitter uses exact word timings instead of prorating by character
+    from hushcast.transcription.sentences import split_at_sentences
+
+    t = normalize({
+        "words": [
+            {"word": "Buy", "start": 0.0, "end": 0.4},
+            {"word": "now.", "start": 0.4, "end": 1.0},
+            {"word": "Back", "start": 5.0, "end": 5.4},
+            {"word": "to", "start": 5.4, "end": 5.6},
+            {"word": "the", "start": 5.6, "end": 5.8},
+            {"word": "show.", "start": 5.8, "end": 6.4},
+        ],
+    })
+    assert len(t.segments) == 1
+    split = split_at_sentences(t)
+    assert [s.text for s in split.segments] == ["Buy now.", "Back to the show."]
+    assert split.segments[0].end == 1.0  # exact word end, not prorated
+    assert split.segments[1].start == 5.0
+
+
+def test_words_only_garbage_and_empty_text_skipped():
+    t = normalize({
+        "words": ["junk", {"word": "no-start"}, {"word": "", "start": 0.1, "end": 0.2},
+                  {"word": "fine", "start": 1.0, "end": 1.4}],
+    })
+    assert [w.text for w in t.segments[0].words] == ["fine"]
+    assert t.segments[0].text == "fine"
+
+
+def test_segments_present_still_win_over_top_level_words():
+    # regression: synthesis must not displace a provider's own segmentation
+    t = normalize({
+        "segments": [{"start": 0.0, "end": 10.0, "text": "hello there"}],
+        "words": [{"word": "hello", "start": 0.5, "end": 1.0}],
+    })
+    assert [s.text for s in t.segments] == ["hello there"]
+    assert [w.text for w in t.segments[0].words] == ["hello"]
