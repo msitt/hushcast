@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.3.0] - 2026-09-14
+
+### Added
+
+- Search for podcasts by name when adding one. The Add podcast dialog now searches the Apple Podcasts directory as you type and shows matches with artwork, publisher, genre, episode count, latest episode age, and feed host so you can pick the right one when several shows share a name. Pasting an RSS URL still works as before.
+- Support transcription services that return word-level timestamps without
+  their own segmentation. Episodes from these services previously failed with
+  "transcription returned no segments".
+
+### Fixed
+
+- Clearing the detection prompt in settings now really does restore the built-in default. It previously saved an empty prompt, which degraded ad detection until you pasted something back in.
+
 ## [1.2.1] - 2026-09-06
 
 ### Fixed
