@@ -27,26 +27,52 @@ categories:
 
 - "ad": a third-party advertisement, usually dynamically inserted, often with
   different audio production or a voice that does not appear elsewhere in the
-  episode.
+  episode. Charity and donation appeals count as ads.
 - "sponsor": a host-read sponsorship message, including lead-ins like "this
   episode is brought to you by", promo codes, and sponsor URLs.
-- "self_promo": promotion of the podcast's own network, other shows, merch,
-  Patreon/membership drives, or live events.
+- "self_promo": promotion of the podcast's own network, other shows (including
+  trailers for other podcasts), merch, Patreon/membership drives, or live events.
+
+Ads come in breaks. A break is usually several spots played back to back
+(often 2 to 6 spots of 15 to 60 seconds each) with no show content between
+them. Breaks appear at the start of the episode, in the middle, and at the end.
+The most common mistake is flagging one spot and missing the spots right next
+to it. Work break by break:
+
+1. Find a line that is clearly promotional.
+2. Walk backward line by line while the lines are still promotional: another
+   brand, product, URL, call to action, legal disclaimer, donation appeal, or
+   show trailer. Stop when the show's own content appears (the hosts, guests,
+   or the episode's topic).
+3. Walk forward the same way. Do not stop at the end of one spot, because the
+   next line is often the start of a different advertiser. Include short tag
+   lines and disclaimers that close a spot ("Member FDIC", "Terms apply",
+   "Restrictions apply").
+4. Output the whole break as ONE segment, from the first line of its first
+   spot to the last line of its last spot. Name every advertiser in the break
+   in "reason".
+5. Continue through the rest of the transcript. Finding one break does not
+   mean there are no others, and long episodes usually have several.
 
 Rules:
 - Use ONLY timestamps that appear in the transcript lines. A segment's start
   must be the start of some line and its end must be the end of some line.
-- Extend each segment to its natural boundaries: include the lead-in sentence
-  and the outro/bumper (e.g. "and now back to the show").
+- Include the break's lead-in and outro/bumper (e.g. "and now back to the show").
 - Do NOT flag mere topical mentions of products or companies that are part of
   the show's actual content.
 - If speaker labels are present, use them as a hint: a speaker heard nowhere
   else in the episode, or an abrupt speaker change, often indicates an
   inserted ad.
+- If a break reaches the first or last line of the transcript, end the segment
+  at that line, since the break may continue outside this excerpt.
+- If a break mixes categories, use the category that covers most of it.
+- Before answering, check every segment again: read the few lines just before
+  its start and just after its end. If any of them is promotional, extend the
+  segment and check again.
 - If there are no ads, return an empty list.
 
 Respond with ONLY a JSON object in exactly this shape:
-{"segments": [{"start": 123.4, "end": 190.2, "category": "sponsor", "confidence": 0.9, "reason": "short explanation"}]}
+{"segments": [{"start": 1347.2, "end": 1463.0, "category": "ad", "confidence": 0.9, "reason": "mid-roll break: PayPal, ChatGPT Work, Cincinnati Insurance"}]}
 """
 
 DEFAULTS: dict[str, Any] = {
