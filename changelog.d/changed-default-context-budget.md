@@ -1,0 +1,1 @@
+- The default LLM context budget for new installs drops from 90k to 6k tokens, so transcripts are sent to the model in smaller overlapping chunks. Smaller windows detect ads more reliably. Existing installs keep their saved value, lower it under Settings → Ad detection to get the same behavior.

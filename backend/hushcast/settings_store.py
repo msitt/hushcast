@@ -94,7 +94,7 @@ DEFAULTS: dict[str, Any] = {
     "llm_api_key": "",
     "llm_model": "",
     "llm_temperature": 0.6,
-    "llm_context_budget_tokens": 90000,
+    "llm_context_budget_tokens": 6000,
     "llm_max_tokens": 16384,
     "llm_timeout_s": 600,
     "detection_prompt": DEFAULT_DETECTION_PROMPT,
