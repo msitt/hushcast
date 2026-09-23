@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.4.0] - 2026-09-23
+
+### Added
+
+- Promo-only episodes (a trailer or cross-promo for another show) are recognized as such instead of tripping the detection safety limit. By default they are left out of the served feed. A new "Promo-only episodes" setting under Ad detection can serve them untouched instead.
+
+### Changed
+
+- The default LLM context budget for new installs drops from 90k to 6k tokens, so transcripts are sent to the model in smaller overlapping chunks. Smaller windows detect ads more reliably. Existing installs keep their saved value, lower it under Settings → Ad detection to get the same behavior.
+- The default detection prompt now treats ads as breaks of several back-to-back spots, so ads sitting right next to an already detected ad are less likely to be missed. It also covers charity appeals and trailers for other podcasts. If you saved a copy of the old default in settings, clear the prompt field to pick up the new one.
+- When ad detection would cut more than half an episode, the episode now waits for review instead of being retried as a failure. Retrying only ever "succeeded" by under-detecting. The detected segments stay visible so you can mark what is not an ad and cut as shown, run detection again, or dismiss. A "needs review" notification and a dashboard alert point at these episodes.
+
 ## [1.3.0] - 2026-09-14
 
 ### Added

@@ -1,1 +1,0 @@
-- The default detection prompt now treats ads as breaks of several back-to-back spots, so ads sitting right next to an already detected ad are less likely to be missed. It also covers charity appeals and trailers for other podcasts. If you saved a copy of the old default in settings, clear the prompt field to pick up the new one.
