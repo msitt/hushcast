@@ -1,0 +1,1 @@
+- When ad detection would cut more than half an episode, the episode now waits for review instead of being retried as a failure. Retrying only ever "succeeded" by under-detecting. The detected segments stay visible so you can mark what is not an ad and cut as shown, run detection again, or dismiss. A "needs review" notification and a dashboard alert point at these episodes.

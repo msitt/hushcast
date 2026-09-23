@@ -187,8 +187,10 @@ async def patch_segment(
     seg = await session.get(Segment, segment_id)
     if seg is None:
         raise HTTPException(404, "segment not found")
-    if seg.source != "llm":
+    if seg.source == "manual":
         raise HTTPException(409, "manual segments are removed with DELETE, not toggled")
+    if seg.source == "promo":
+        raise HTTPException(409, "promo-only episode segments are informational and cannot be corrected")
     seg.kept = body.kept
     if body.kept:
         # false-positive correction: snapshot context now so it survives cleanup
@@ -447,7 +449,7 @@ async def retry_episode(episode_id: int, session: AsyncSession = Depends(get_ses
 
 @router.post("/episodes/{episode_id}/dismiss")
 async def dismiss_episode(episode_id: int, session: AsyncSession = Depends(get_session)) -> dict:
-    """Give up on a failed episode: move it to skipped so it stops alerting.
+    """Give up on a failed episode, or one waiting for review: move it to skipped.
 
     status_detail and job history are kept so the failure stays inspectable.
     The episode can be re-queued later via Process (skipped -> queued).
@@ -455,8 +457,8 @@ async def dismiss_episode(episode_id: int, session: AsyncSession = Depends(get_s
     ep = await session.get(Episode, episode_id)
     if ep is None:
         raise HTTPException(404, "episode not found")
-    if ep.status != state.FAILED:
-        raise HTTPException(409, f"episode is {ep.status}, only failed episodes can be dismissed")
+    if ep.status not in (state.FAILED, state.REVIEW):
+        raise HTTPException(409, f"episode is {ep.status}, only failed or review episodes can be dismissed")
     state.validate_transition(ep.status, state.SKIPPED)
     ep.status = state.SKIPPED
     await session.commit()

@@ -21,10 +21,10 @@ class StubLLM:
 
 async def run(replies, log_lines=None):
     llm = StubLLM(replies)
-    segments = await _detect_chunk(
+    result = await _detect_chunk(
         llm, MESSAGES, chunk_label="chunk 1/1", log_lines=log_lines, recorder=None
     )
-    return llm, segments
+    return llm, result.segments
 
 
 async def test_good_first_reply_no_retry():

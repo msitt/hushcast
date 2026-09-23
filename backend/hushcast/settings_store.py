@@ -70,9 +70,13 @@ Rules:
   its start and just after its end. If any of them is promotional, extend the
   segment and check again.
 - If there are no ads, return an empty list.
+- Some feeds publish episodes that are nothing but a promotion: a trailer for
+  another show, a cross-promo, or a subscribe announcement. Flag those with
+  "whole_episode_promo": true and still list the promotional span in
+  "segments". A regular episode with ads in it is not a promo episode.
 
 Respond with ONLY a JSON object in exactly this shape:
-{"segments": [{"start": 1347.2, "end": 1463.0, "category": "ad", "confidence": 0.9, "reason": "mid-roll break: PayPal, ChatGPT Work, Cincinnati Insurance"}]}
+{"segments": [{"start": 1347.2, "end": 1463.0, "category": "ad", "confidence": 0.9, "reason": "mid-roll break: PayPal, ChatGPT Work, Cincinnati Insurance"}], "whole_episode_promo": false}
 """
 
 DEFAULTS: dict[str, Any] = {
@@ -106,6 +110,9 @@ DEFAULTS: dict[str, Any] = {
     "keep_originals_days": 7,
     "min_confidence": 0.6,
     "min_duration_s": 8.0,
+    # what to do with an episode that is nothing but a promotion (trailer, cross-promo):
+    # skip = leave it out of the served feed, passthrough = serve it untouched
+    "promo_episode_action": "skip",
     "merge_gap_s": 7.0,
     "snap_tolerance_s": 15.0,
     # word-level boundary refinement
@@ -133,11 +140,13 @@ DEFAULTS: dict[str, Any] = {
     "notification_urls": [],
     "notification_events": {
         "episode_retries_exhausted": True,
+        "episode_needs_review": True,
         "feed_poll_failing": True,
     },
 }
 
 SECRET_KEYS = {"transcription_api_key", "llm_api_key"}
+PROMO_ACTIONS = ("skip", "passthrough")
 
 # Blank means "use the default", not "use an empty value". Deliberately narrow:
 # feed_token and the hint fields all treat empty as a real, meaningful value.

@@ -10,6 +10,7 @@ export type EpisodeStatus =
   | "cutting"
   | "processed"
   | "failed"
+  | "review"
   | "expired";
 
 export const ALL_STATUSES: EpisodeStatus[] = [
@@ -22,6 +23,7 @@ export const ALL_STATUSES: EpisodeStatus[] = [
   "cutting",
   "processed",
   "failed",
+  "review",
   "expired",
 ];
 
@@ -86,7 +88,7 @@ export interface SegmentOut {
   confidence: number;
   reason: string | null;
   kept: boolean;
-  source: "llm" | "manual";
+  source: "llm" | "manual" | "promo";
   corrected_at: string | null;
 }
 
@@ -288,6 +290,7 @@ export interface Settings {
   keep_originals_days: number;
   min_confidence: number;
   min_duration_s: number;
+  promo_episode_action: "skip" | "passthrough";
   merge_gap_s: number;
   snap_tolerance_s: number;
   refine_window_s: number;
@@ -307,7 +310,11 @@ export interface Settings {
   log_level: string;
   feed_token: string;
   notification_urls: string[];
-  notification_events: { episode_retries_exhausted: boolean; feed_poll_failing: boolean };
+  notification_events: {
+    episode_retries_exhausted: boolean;
+    episode_needs_review?: boolean; // absent on installs that saved events before it existed
+    feed_poll_failing: boolean;
+  };
 }
 
 export interface LlmCallSummary {

@@ -84,6 +84,14 @@ export function NotificationsPage() {
         <label className="field field-inline">
           <input
             type="checkbox"
+            checked={events.episode_needs_review ?? true}
+            onChange={(e) => setEvents((ev) => ({ ...ev, episode_needs_review: e.target.checked }))}
+          />
+          <span>Episode needs review</span>
+        </label>
+        <label className="field field-inline">
+          <input
+            type="checkbox"
             checked={events.feed_poll_failing}
             onChange={(e) => setEvents((ev) => ({ ...ev, feed_poll_failing: e.target.checked }))}
           />

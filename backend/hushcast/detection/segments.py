@@ -31,6 +31,10 @@ class DetectionRejected(Exception):
 # Circuit-breaker ceiling: refuse to cut when detection would remove more than
 # this share of an episode.
 MAX_REMOVED_PCT = 50.0
+# An episode the LLM flagged as promo-only counts as one when the detected
+# segments cover at least this share of it. Below that the flag is ignored and
+# the result is treated like any other detection.
+PROMO_MIN_COVERAGE_PCT = 80.0
 
 
 def clamp(segments: list[AdSegment], duration: float) -> list[AdSegment]:
@@ -194,15 +198,21 @@ def extend_to_edges(
     return ordered
 
 
+def removed_pct(segments: list[AdSegment], duration: float) -> float:
+    """Share of the episode (0-100) the segments would remove."""
+    if duration <= 0:
+        return 0.0
+    return 100.0 * sum(s.duration for s in segments) / duration
+
+
 def check_removed_fraction(segments: list[AdSegment], duration: float, max_removed_pct: float) -> None:
     if duration <= 0:
         return
-    removed = sum(s.duration for s in segments)
-    pct = 100.0 * removed / duration
+    pct = removed_pct(segments, duration)
     if pct > max_removed_pct:
         raise DetectionRejected(
             f"detected segments would remove {pct:.1f}% of the episode "
-            f"(limit {max_removed_pct:.0f}%), refusing: the LLM likely misfired"
+            f"(limit {max_removed_pct:.0f}%), refusing to cut without a review"
         )
 
 
@@ -215,7 +225,7 @@ def postprocess(
     min_confidence: float,
     min_duration_s: float,
     merge_gap_s: float,
-    max_removed_pct: float = MAX_REMOVED_PCT,
+    max_removed_pct: float | None = MAX_REMOVED_PCT,  # None = caller runs the circuit breaker itself
     cue_intervals: list[tuple[float, float]] | None = None,
     bridge_max_gap_s: float = 0.0,
     edge_max_extension_s: float = 0.0,
@@ -236,7 +246,8 @@ def postprocess(
         segments = refine_mod.refine_boundaries(
             segments, refine_gaps, window_s=refine_window_s, min_gap_s=refine_min_gap_s
         )
-    check_removed_fraction(segments, duration, max_removed_pct)
+    if max_removed_pct is not None:
+        check_removed_fraction(segments, duration, max_removed_pct)
     return segments
 
 

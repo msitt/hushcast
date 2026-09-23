@@ -57,12 +57,22 @@ SEGMENTS_SCHEMA: dict[str, Any] = {
                     "required": ["start", "end", "category", "confidence", "reason"],
                     "additionalProperties": False,
                 },
-            }
+            },
+            "whole_episode_promo": {"type": "boolean"},
         },
-        "required": ["segments"],
+        "required": ["segments", "whole_episode_promo"],
         "additionalProperties": False,
     },
 }
+
+
+@dataclass
+class DetectionResult:
+    segments: list[AdSegment]
+    # The LLM's episode-level call: the whole thing is a trailer/cross-promo,
+    # not a regular episode with ads in it. The detect step decides what that
+    # means (drop or pass through) once the segments confirm the coverage.
+    whole_episode_promo: bool = False
 
 
 @dataclass
@@ -260,6 +270,10 @@ def parse_json_object(content: str) -> dict[str, Any]:
 
 
 def parse_segments(content: str) -> list[AdSegment]:
+    return parse_detection(content).segments
+
+
+def parse_detection(content: str) -> DetectionResult:
     obj = parse_json_object(content)
     raw = obj.get("segments")
     if raw is None:
@@ -289,7 +303,11 @@ def parse_segments(content: str) -> list[AdSegment]:
                 reason=str(item.get("reason", ""))[:1000],
             )
         )
-    return out
+    # tolerate providers that ignore the schema and models that answer "true"
+    promo = obj.get("whole_episode_promo", False)
+    if isinstance(promo, str):
+        promo = promo.strip().lower() == "true"
+    return DetectionResult(segments=out, whole_episode_promo=bool(promo))
 
 
 async def detect_ads(
@@ -307,7 +325,7 @@ async def detect_ads(
     cue_min_prompt_duration_s: float = 2.0,
     log_lines: list[str] | None = None,
     recorder: CallRecorder | None = None,
-) -> list[AdSegment]:
+) -> DetectionResult:
     chunks = prompts.chunk_transcript(
         transcript, context_budget_tokens,
         cues=cues, min_cue_duration_s=cue_min_prompt_duration_s,
@@ -315,6 +333,7 @@ async def detect_ads(
     if log_lines is not None and len(chunks) > 1:
         log_lines.append(f"transcript exceeds context budget, split into {len(chunks)} overlapping chunks")
     found: list[AdSegment] = []
+    promo_votes: list[bool] = []
     for idx, chunk in enumerate(chunks):
         messages = prompts.build_messages(
             system_prompt=system_prompt,
@@ -326,16 +345,21 @@ async def detect_ads(
             global_learned_hints=global_learned_hints,
             has_cues=bool(cues),
         )
-        segments = await _detect_chunk(
+        result = await _detect_chunk(
             llm, messages,
             chunk_label=f"chunk {idx + 1}/{len(chunks)}",
             log_lines=log_lines,
             recorder=recorder,
         )
         if log_lines is not None:
-            log_lines.append(f"chunk {idx + 1}/{len(chunks)}: LLM returned {len(segments)} segment(s)")
-        found.extend(segments)
-    return found
+            log_lines.append(f"chunk {idx + 1}/{len(chunks)}: LLM returned {len(result.segments)} segment(s)")
+        found.extend(result.segments)
+        promo_votes.append(result.whole_episode_promo)
+    # a chunked episode is promo-only only if every chunk says so
+    promo = bool(promo_votes) and all(promo_votes)
+    if promo and log_lines is not None:
+        log_lines.append("LLM flagged the whole episode as promotional")
+    return DetectionResult(segments=found, whole_episode_promo=promo)
 
 
 async def _detect_chunk(
@@ -345,7 +369,7 @@ async def _detect_chunk(
     chunk_label: str,
     log_lines: list[str] | None,
     recorder: CallRecorder | None,
-) -> list[AdSegment]:
+) -> DetectionResult:
     """One chat call per attempt, retries when the reply has no complete JSON.
 
     A reply that hit the completion token cap (finish_reason=length) is also
@@ -353,19 +377,19 @@ async def _detect_chunk(
     end may be missing. The salvage is kept as a last resort if every attempt
     truncates.
     """
-    salvaged: list[AdSegment] | None = None
+    salvaged: DetectionResult | None = None
     attempt_messages = messages
     error = "no attempt made"
     for attempt in range(1 + MALFORMED_RETRIES):
         result = await llm.chat(attempt_messages, schema=SEGMENTS_SCHEMA, recorder=recorder)
         try:
-            segments = parse_segments(result.content)
+            parsed = parse_detection(result.content)
         except ValueError as exc:
             error = str(exc)
         else:
             if result.finish_reason != "length":
-                return segments
-            salvaged = segments
+                return parsed
+            salvaged = parsed
             error = "the reply was cut off by the completion token limit (llm_max_tokens)"
         if attempt < MALFORMED_RETRIES:
             note = f"{chunk_label}: malformed LLM output ({error[:200]}), retrying"
@@ -376,7 +400,7 @@ async def _detect_chunk(
                 {"role": "user", "content": RETRY_NUDGE.format(error=error[:200])}
             ]
     if salvaged is not None:
-        note = f"{chunk_label}: every attempt truncated, using {len(salvaged)} salvaged segment(s)"
+        note = f"{chunk_label}: every attempt truncated, using {len(salvaged.segments)} salvaged segment(s)"
         log.warning("%s", note)
         if log_lines is not None:
             log_lines.append(note)

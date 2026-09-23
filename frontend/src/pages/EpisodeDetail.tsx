@@ -952,6 +952,13 @@ export function EpisodeDetailPage() {
         {ep.status === "failed" && ep.status_detail && (
           <div className="inline-error">{ep.status_detail}</div>
         )}
+        {ep.status === "review" && ep.status_detail && (
+          <div className="inline-warning">
+            {ep.status_detail}. Review the detected segments below: mark anything that is not an ad, then cut
+            as shown, or run detection again.
+          </div>
+        )}
+        {ep.status === "skipped" && ep.status_detail && <div className="inline-warning">{ep.status_detail}</div>}
         <div className="stat-row">
           <div className="stat">
             <span className="stat-label">Original</span>
@@ -976,6 +983,29 @@ export function EpisodeDetailPage() {
             <>
               <button className="btn btn-primary" disabled={busy} onClick={() => void run("Retry", () => api.retryEpisode(ep.id))}>
                 Retry
+              </button>
+              <button className="btn" disabled={busy} onClick={() => void dismiss()} title="Give up on this episode: mark it skipped so it stops alerting">
+                Dismiss
+              </button>
+            </>
+          )}
+          {ep.status === "review" && (
+            <>
+              <button
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() => void run("Cut as shown", () => api.reprocessEpisode(ep.id, "cut"))}
+                title="Cut the episode with the segments as they stand below, including your corrections"
+              >
+                Cut as shown
+              </button>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={() => void run("Re-detect ads", () => api.reprocessEpisode(ep.id, "detect"))}
+                title="Discard these segments and run detection again"
+              >
+                Re-detect ads
               </button>
               <button className="btn" disabled={busy} onClick={() => void dismiss()} title="Give up on this episode: mark it skipped so it stops alerting">
                 Dismiss
@@ -1026,8 +1056,9 @@ export function EpisodeDetailPage() {
       <section className="panel">
         <h2 className="panel-title">Detected segments</h2>
         <p className="field-hint">
-          Corrections are training signal: they feed the podcast's "Distill hints" step but never re-cut existing
-          audio.
+          {ep.status === "review"
+            ? "Nothing has been cut yet. \"Not an ad\" and deleting segments change what \"Cut as shown\" removes, and they also feed the podcast's \"Distill hints\" step."
+            : "Corrections are training signal: they feed the podcast's \"Distill hints\" step but never re-cut existing audio."}
         </p>
         {ep.segments.length === 0 ? (
           <div className="empty-small">No segments detected.</div>
@@ -1068,12 +1099,18 @@ export function EpisodeDetailPage() {
                         {s.category}
                       </span>
                       {s.source === "manual" && <span className="chip chip-tiny chip-blue">manual</span>}
-                      {s.kept && <span className="chip chip-tiny chip-dim">not an ad</span>}
+                      {s.source === "promo" ? (
+                        <span className="chip chip-tiny chip-dim" title="The whole episode is promotional, so it was not cut. See Settings → Ad detection → Promo-only episodes.">
+                          promo-only episode
+                        </span>
+                      ) : (
+                        s.kept && <span className="chip chip-tiny chip-dim">not an ad</span>
+                      )}
                     </td>
                     <td className="cell-nowrap">{Math.round(s.confidence * 100)}%</td>
                     <td className="cell-reason">{s.reason ?? "-"}</td>
                     <td className="cell-action">
-                      {s.source === "llm" ? (
+                      {s.source === "promo" ? null : s.source === "llm" ? (
                         <button
                           className="btn btn-small"
                           disabled={busy}

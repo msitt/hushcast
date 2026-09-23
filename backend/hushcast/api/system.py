@@ -111,6 +111,25 @@ async def _alerts(session: AsyncSession, config: AppConfig) -> list[dict]:
                 "feed_id": feed_id,
             }
         )
+    review_by_feed = (
+        await session.execute(
+            select(Episode.feed_id, Feed.title, func.count())
+            .join(Feed, Episode.feed_id == Feed.id)
+            .where(Episode.status == state.REVIEW)
+            .group_by(Episode.feed_id)
+            .order_by(Feed.title)
+        )
+    ).all()
+    for feed_id, title, n in review_by_feed:
+        alerts.append(
+            {
+                "severity": "warning",
+                "kind": "review_episodes",
+                "message": f"{title or f'Feed {feed_id}'}: {n} episode{'s' if n != 1 else ''} waiting for review",
+                "link": f"/podcasts/{feed_id}?status=review",
+                "feed_id": feed_id,
+            }
+        )
     free = shutil.disk_usage(config.data_dir).free
     if free < LOW_DISK_BYTES:
         alerts.append(

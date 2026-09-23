@@ -30,6 +30,10 @@ async def put_settings(
         body["log_level"] = str(body["log_level"]).upper()
         if body["log_level"] not in loglevel.LEVELS:
             raise HTTPException(400, f"log_level must be one of {', '.join(loglevel.LEVELS)}")
+    if "promo_episode_action" in body and body["promo_episode_action"] not in settings_store.PROMO_ACTIONS:
+        raise HTTPException(
+            400, f"promo_episode_action must be one of {', '.join(settings_store.PROMO_ACTIONS)}"
+        )
     try:
         await settings_store.set_many(session, body)
     except KeyError as exc:

@@ -222,10 +222,15 @@ class Worker:
 
         log_start = len(ctx.log)
         error: str | None = None
+        stop: state.StopPipeline | None = None
         for attempt in range(1, STEP_ATTEMPTS + 1):
             try:
                 await fn(ctx)
                 error = None
+                break
+            except state.StopPipeline as exc:
+                stop = exc
+                ctx.log.append(f"stopped: {exc.detail}")
                 break
             except TRANSIENT_ERRORS as exc:
                 error = _describe_error(exc, step_name, ctx.settings)
@@ -252,7 +257,21 @@ class Worker:
             job.finished_at = utcnow()
             job.log_text = "\n".join(ctx.log[log_start:])[:20000]
             job.metrics_json = json.dumps(ctx.metrics)
-            if error is None:
+            if stop is not None:
+                job.status = "failed" if stop.job_error else "success"
+                job.error = stop.job_error[:2000] if stop.job_error else None
+                if episode is not None:
+                    state.validate_transition(episode.status, stop.status)
+                    episode.status = stop.status
+                    episode.status_detail = f"{step_name}: {stop.detail}"[:2000]
+                    if stop.status == state.REVIEW:
+                        notify(
+                            NotificationEvent.EPISODE_NEEDS_REVIEW,
+                            "hushcast: episode needs review",
+                            f'"{ctx.episode_title}" ({ctx.podcast_title}): {stop.detail}',
+                            ctx.settings,
+                        )
+            elif error is None:
                 job.status = "success"
             else:
                 job.status = "failed"
@@ -283,7 +302,7 @@ class Worker:
                             ctx.settings,
                         )
             await session.commit()
-        return error is None
+        return error is None and stop is None
 
 
 worker = Worker()

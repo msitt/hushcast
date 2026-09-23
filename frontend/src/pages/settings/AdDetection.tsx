@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, type TestResult } from "../../api/client";
-import { NumField, SaveBar, Section, TextField, testBadge, useSettingsForm } from "./shared";
+import { NumField, SaveBar, Section, SelectField, TextField, testBadge, useSettingsForm } from "./shared";
 
 const KEYS = [
   "llm_base_url",
@@ -14,6 +14,7 @@ const KEYS = [
   "global_learned_hints",
   "min_confidence",
   "min_duration_s",
+  "promo_episode_action",
   "merge_gap_s",
   "snap_tolerance_s",
   "refine_window_s",
@@ -107,6 +108,17 @@ export function AdDetectionPage() {
           <NumField draft={draft} set={set} k="refine_min_gap_s" label="Min pause (s)" step="0.05"
             hint="Shortest inter-word silence that qualifies as a cut point." />
         </div>
+        <SelectField
+          draft={draft}
+          set={set}
+          k="promo_episode_action"
+          label="Promo-only episodes"
+          options={[
+            { value: "skip", label: "Leave out of the feed" },
+            { value: "passthrough", label: "Serve untouched" },
+          ]}
+          hint="What to do with an episode that is nothing but a promotion, like a trailer for another show. Cutting it would leave almost nothing, so it is either dropped from the served feed or passed through as is."
+        />
       </Section>
       <SaveBar saving={saving} saved={saved} />
     </form>

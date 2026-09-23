@@ -44,3 +44,14 @@ def test_missing_segments_key_raises():
 def test_no_json_raises():
     with pytest.raises(ValueError):
         parse_json_object("I could not find any ads.")
+
+
+def test_whole_episode_promo_flag():
+    from hushcast.detection.llm import parse_detection
+
+    body = '{"segments": [{"start": 0, "end": 29, "category": "self_promo", "confidence": 0.9, "reason": "trailer"}]'
+    assert parse_detection(body + ', "whole_episode_promo": true}').whole_episode_promo is True
+    assert parse_detection(body + ', "whole_episode_promo": false}').whole_episode_promo is False
+    # providers that ignore the schema omit it, sloppy models quote it
+    assert parse_detection(body + "}").whole_episode_promo is False
+    assert parse_detection(body + ', "whole_episode_promo": "true"}').whole_episode_promo is True

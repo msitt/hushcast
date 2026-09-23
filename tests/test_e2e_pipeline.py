@@ -63,6 +63,10 @@ def make_stub_app(audio_path) -> FastAPI:
         ]
         return {"language": "en", "duration": 60.0, "segments": segments}
 
+    # "ads" = one 10s sponsor spot, "overcut" = flags most of the episode without
+    # the promo flag (a misfire), "promo" = flags it all and says the episode is promo-only
+    app.state.llm_mode = "ads"
+
     @app.post("/v1/chat/completions")
     async def chat(body: dict):
         system = body["messages"][0]["content"]
@@ -70,6 +74,16 @@ def make_stub_app(audio_path) -> FastAPI:
             content = (
                 '{"feed_hints": ["the host reads sponsor spots with a promo code"], '
                 '"global_hints": ["segments with promo codes are sponsorships"]}'
+            )
+        elif app.state.llm_mode == "overcut":
+            content = (
+                '{"segments": [{"start": 0.0, "end": 55.0, "category": "ad", '
+                '"confidence": 0.9, "reason": "everything"}], "whole_episode_promo": false}'
+            )
+        elif app.state.llm_mode == "promo":
+            content = (
+                '{"segments": [{"start": 0.0, "end": 55.0, "category": "self_promo", '
+                '"confidence": 0.9, "reason": "trailer for another show"}], "whole_episode_promo": true}'
             )
         else:
             content = (
@@ -79,6 +93,9 @@ def make_stub_app(audio_path) -> FastAPI:
         return {"choices": [{"message": {"role": "assistant", "content": content}}]}
 
     return app
+
+
+STUB_APPS: dict[str, FastAPI] = {}
 
 
 @pytest.fixture(scope="module")
@@ -92,6 +109,7 @@ def stub_server(tmp_path_factory):
     port = _free_port()
     app = make_stub_app(audio)
     app.state.port_holder["port"] = port
+    STUB_APPS[f"http://127.0.0.1:{port}"] = app
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -254,3 +272,58 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         originals = list((data_dir / "audio" / "original").iterdir())
         assert originals == []
         assert (data_dir / "audio" / "processed" / f"{episode['id']}.mp3").exists()
+
+        def wait_for(ep_id: int, statuses: tuple[str, ...]) -> dict:
+            deadline = time.time() + 90
+            while time.time() < deadline:
+                ep = client.get(f"/api/episodes/{ep_id}").json()
+                if ep["status"] in statuses:
+                    return ep
+                time.sleep(0.5)
+            pytest.fail(f"episode {ep_id} never reached {statuses}, last: {ep['status']} {ep['status_detail']}")
+
+        stub = STUB_APPS[stub_server]
+        ep_id = episode["id"]
+
+        # --- over-cut without the promo flag: the circuit breaker parks the episode for review,
+        # segments stay visible, nothing is cut, and it is not auto-retried as a failure
+        stub.state.llm_mode = "overcut"
+        assert client.post(f"/api/episodes/{ep_id}/reprocess", params={"from_step": "detect"}).status_code == 200
+        ep = wait_for(ep_id, ("review", "processed", "failed"))
+        assert ep["status"] == "review", ep
+        assert "would remove 91.7%" in ep["status_detail"]
+        assert ep["retry_count"] == 0
+        assert len(ep["segments"]) == 1 and ep["segments"][0]["kept"] is False
+        assert ep["jobs"][-1]["step"] == "detect" and ep["jobs"][-1]["status"] == "failed"
+        assert any(a["kind"] == "review_episodes" for a in client.get("/api/system/alerts").json())
+        # the human trims the block (not-an-ad inside it) and cuts with what is left
+        r = client.post(f"/api/episodes/{ep_id}/segments", json={"start_s": 0.0, "end_s": 40.0, "not_ad": True})
+        assert r.status_code == 201
+        assert client.post(f"/api/episodes/{ep_id}/reprocess", params={"from_step": "cut"}).status_code == 200
+        ep = wait_for(ep_id, ("processed", "failed", "review"))
+        assert ep["status"] == "processed", ep
+        assert ep["ad_seconds_removed"] == pytest.approx(55.0, abs=1.0)  # cut ignores the kept trim's overlap
+        assert [j["step"] for j in ep["jobs"][-2:]] == ["cut", "finalize"]
+
+        # --- promo-only episode, default action: left out of the feed as skipped
+        stub.state.llm_mode = "promo"
+        assert client.post(f"/api/episodes/{ep_id}/reprocess", params={"from_step": "detect"}).status_code == 200
+        ep = wait_for(ep_id, ("skipped", "processed", "failed", "review"))
+        assert ep["status"] == "skipped", ep
+        assert "promo-only episode" in ep["status_detail"]
+        assert ep["jobs"][-1]["step"] == "detect" and ep["jobs"][-1]["status"] == "success"
+        assert all(s["kept"] and s["source"] == "promo" for s in ep["segments"])
+        assert client.patch(f"/api/segments/{ep['segments'][0]['id']}", json={"kept": False}).status_code == 409
+        r = client.get(f"/p/{token}/{feed['slug']}/feed.xml")
+        assert ET.fromstring(r.content).find("channel/item") is None
+
+        # --- promo-only episode, passthrough: served untouched
+        client.put("/api/settings", json={"promo_episode_action": "passthrough"})
+        assert client.post(f"/api/episodes/{ep_id}/reprocess", params={"from_step": "detect"}).status_code == 200
+        ep = wait_for(ep_id, ("processed", "skipped", "failed", "review"))
+        assert ep["status"] == "processed", ep
+        assert ep["ad_seconds_removed"] == 0.0
+        assert ep["processed_duration_s"] == pytest.approx(60.0, abs=2.0)
+        assert all(s["kept"] for s in ep["segments"])
+        r = client.put("/api/settings", json={"promo_episode_action": "nonsense"})
+        assert r.status_code == 400

@@ -20,6 +20,15 @@ CUE_EXPLANATION = (
     "transcript lines, never from cue lines."
 )
 
+PROMO_EXPLANATION = (
+    'Besides "segments", the JSON object must include a boolean "whole_episode_promo". '
+    "Set it to true only when the entire episode is promotional rather than a regular "
+    "episode that contains ads: a trailer, a cross-promotion for another show, or an "
+    "announcement that exists only to promote or sell something. In that case still "
+    'list the promotional span(s) in "segments". For a regular episode set it to false, '
+    "however many ads it has."
+)
+
 
 @dataclass(frozen=True)
 class Line:
@@ -154,10 +163,11 @@ def build_messages(
         )
     if global_learned_hints and (detection_hints or learned_hints):
         user_parts.append("If podcast-specific guidance conflicts with global guidance, the podcast-specific guidance wins.")
+    # in the user message (not the system prompt) so users who customized
+    # the stored detection_prompt still get these explanations
     if has_cues:
-        # in the user message (not the system prompt) so users who customized
-        # the stored detection_prompt still get the cue explanation
         user_parts.append(CUE_EXPLANATION)
+    user_parts.append(PROMO_EXPLANATION)
     user_parts.append("Transcript:\n" + chunk.text)
     return [
         {"role": "system", "content": system_prompt},

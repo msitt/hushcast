@@ -3,6 +3,7 @@ import { ACTIVE_STATUSES, type EpisodeStatus } from "../api/client";
 const CLASS: Record<EpisodeStatus, string> = {
   processed: "chip-green",
   failed: "chip-red",
+  review: "chip-orange",
   queued: "chip-yellow",
   downloading: "chip-blue",
   transcribing: "chip-blue",

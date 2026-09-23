@@ -44,3 +44,19 @@ def test_invalid_transitions_raise():
         state.validate_transition(state.DISCOVERED, state.PROCESSED)
     with pytest.raises(state.InvalidTransition):
         state.validate_transition(state.SKIPPED, state.DOWNLOADING)
+
+
+def test_detection_can_end_in_review_or_dropped_promo():
+    state.validate_transition(state.DETECTING, state.REVIEW)
+    state.validate_transition(state.DETECTING, state.SKIPPED)
+
+
+def test_review_is_resolved_by_a_human():
+    state.validate_transition(state.REVIEW, state.QUEUED)  # re-detect or cut as reviewed
+    state.validate_transition(state.REVIEW, state.SKIPPED)  # dismiss
+    # never auto-retried: review is not a failure and not resumable
+    assert state.REVIEW not in state.RESUMABLE
+    with pytest.raises(state.InvalidTransition):
+        state.validate_transition(state.REVIEW, state.PROCESSED)
+    with pytest.raises(state.InvalidTransition):
+        state.validate_transition(state.REVIEW, state.FAILED)

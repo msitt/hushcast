@@ -193,3 +193,21 @@ class TestPostprocess:
             refine_gaps=[WordGap(61.0, 62.0)], refine_window_s=4, refine_min_gap_s=0.15,
         )
         assert out[0].end == 61.5
+
+
+def test_removed_pct_and_breaker_opt_out():
+    from hushcast.detection.segments import (
+        check_removed_fraction,
+        postprocess,
+        removed_pct,
+    )
+
+    segs = [AdSegment(start=0.0, end=29.0, category="self_promo", confidence=0.9)]
+    assert removed_pct(segs, 30.0) == pytest.approx(96.67, abs=0.01)
+    assert removed_pct(segs, 0.0) == 0.0
+    # None hands the circuit breaker to the caller, who then runs it explicitly
+    kept = postprocess(segs, duration=30.0, boundaries=[0.0, 29.0], snap_tolerance_s=1.0,
+                       min_confidence=0.5, min_duration_s=1.0, merge_gap_s=1.0, max_removed_pct=None)
+    assert len(kept) == 1
+    with pytest.raises(DetectionRejected):
+        check_removed_fraction(kept, 30.0, 50.0)

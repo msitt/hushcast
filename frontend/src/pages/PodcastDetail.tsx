@@ -31,6 +31,8 @@ function episodeAction(ep: EpisodeOut): { label: string; run: () => Promise<{ ok
       return { label: "Process", run: () => api.processEpisode(ep.id) };
     case "failed":
       return { label: "Retry", run: () => api.retryEpisode(ep.id) };
+    case "review":
+      return { label: "Re-detect ads", run: () => api.reprocessEpisode(ep.id, "detect") };
     case "processed":
       return { label: "Re-detect ads", run: () => api.reprocessEpisode(ep.id, "detect") };
     default:
@@ -462,7 +464,7 @@ export function PodcastDetailPage() {
                                 {actionBusy === ep.id ? "…" : action.label}
                               </button>
                             )}{" "}
-                            {ep.status === "failed" && (
+                            {(ep.status === "failed" || ep.status === "review") && (
                               <button
                                 className="btn btn-small"
                                 disabled={actionBusy === ep.id}

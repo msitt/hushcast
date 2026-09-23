@@ -1,0 +1,1 @@
+- Promo-only episodes (a trailer or cross-promo for another show) are recognized as such instead of tripping the detection safety limit. By default they are left out of the served feed. A new "Promo-only episodes" setting under Ad detection can serve them untouched instead.

@@ -31,11 +31,13 @@ _ASSET = apprise.AppriseAsset(
 
 class NotificationEvent(StrEnum):
     EPISODE_RETRIES_EXHAUSTED = "episode_retries_exhausted"
+    EPISODE_NEEDS_REVIEW = "episode_needs_review"
     FEED_POLL_FAILING = "feed_poll_failing"
 
 
 EVENT_LABELS = {
     NotificationEvent.EPISODE_RETRIES_EXHAUSTED: "Episode retries exhausted",
+    NotificationEvent.EPISODE_NEEDS_REVIEW: "Episode needs review",
     NotificationEvent.FEED_POLL_FAILING: "Feed polling failing repeatedly",
 }
 

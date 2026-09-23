@@ -149,7 +149,8 @@ class Segment(Base):
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     reason: Mapped[str] = mapped_column(Text, default="")
     kept: Mapped[bool] = mapped_column(Boolean, default=False)  # user says: not an ad (false positive)
-    source: Mapped[str] = mapped_column(String(10), default="llm")  # llm | manual (user-added false negative)
+    # llm | manual (user-added false negative) | promo (promo-only episode, informational, never cut)
+    source: Mapped[str] = mapped_column(String(10), default="llm")
     # Transcript excerpt snapshotted at correction time (range ±context), makes
     # corrections self-contained for the hint distiller.
     excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
