@@ -3,6 +3,7 @@
 Requires ffmpeg. Exercises: add feed -> initial poll -> download -> transcribe
 -> detect -> cut -> finalize -> served RSS + byte-range audio.
 """
+import re
 import shutil
 import socket
 import subprocess
@@ -291,7 +292,9 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         assert client.post(f"/api/episodes/{ep_id}/reprocess", params={"from_step": "detect"}).status_code == 200
         ep = wait_for(ep_id, ("review", "processed", "failed"))
         assert ep["status"] == "review", ep
-        assert "would remove 91.7%" in ep["status_detail"]
+        # the exact figure depends on the duration ffprobe reports, which varies by ffmpeg build
+        m = re.search(r"would remove (\d+\.\d)%", ep["status_detail"])
+        assert m and float(m.group(1)) == pytest.approx(91.7, abs=0.5), ep["status_detail"]
         assert ep["retry_count"] == 0
         assert len(ep["segments"]) == 1 and ep["segments"][0]["kept"] is False
         assert ep["jobs"][-1]["step"] == "detect" and ep["jobs"][-1]["status"] == "failed"
