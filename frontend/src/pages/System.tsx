@@ -117,10 +117,11 @@ export function SystemPage() {
     intervalMs: logsLive ? 3000 : 0,
   });
 
-  // Re-render every 30s so the uptime figure stays fresh.
-  const [, setTick] = useState(0);
+  // Current time, refreshed every 30s so the uptime and next-poll figures stay
+  // fresh without reading the clock during render.
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setTick((t) => t + 1), 30_000);
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -318,7 +319,7 @@ export function SystemPage() {
               <dt>Version</dt>
               <dd>{info.version}</dd>
               <dt>Uptime</dt>
-              <dd>{formatElapsed(info.started_at, null)}</dd>
+              <dd>{formatElapsed(info.started_at, new Date(now).toISOString())}</dd>
               <dt>Python</dt>
               <dd>{info.python_version}</dd>
               <dt>Platform</dt>
@@ -362,7 +363,7 @@ export function SystemPage() {
               <dt>Data dir</dt>
               <dd className="mono">{info.data_dir}</dd>
               <dt>Next feed poll</dt>
-              <dd>{info.next_poll_at ? formatElapsed(new Date().toISOString(), info.next_poll_at) + " from now" : "-"}</dd>
+              <dd>{info.next_poll_at ? formatElapsed(new Date(now).toISOString(), info.next_poll_at) + " from now" : "-"}</dd>
               {status ? (
                 <>
                   <dt>Queue</dt>
