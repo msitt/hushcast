@@ -1,0 +1,73 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:best-practices",
+  ],
+  semanticCommits: "enabled",
+  minimumReleaseAge: "5 days",
+  prConcurrentLimit: 5,
+  labels: ["dependencies"],
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: [],  // overrides the built-in "before 4am on monday"
+  },
+  vulnerabilityAlerts: {
+    // Security fixes skip the release-age wait. The label is a reminder that
+    // the PR probably needs a changelog.d/security-*.md fragment.
+    labels: ["security"],
+    minimumReleaseAge: null,
+  },
+  packageRules: [
+    {
+      description: "Direct dependencies are pinned exactly: this is an app, not a library, and an exact pin means every version move arrives as its own reviewable PR instead of inside a lock file diff",
+      matchManagers: ["pep621", "npm"],
+      rangeStrategy: "pin",
+    },
+    {
+      description: "Non-major backend updates",
+      matchManagers: ["pep621"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest"],
+      groupName: "backend dependencies",
+    },
+    {
+      description: "Non-major frontend updates",
+      matchManagers: ["npm"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest"],
+      groupName: "frontend dependencies",
+    },
+    {
+      description: "Non-major CI and image updates",
+      matchManagers: ["github-actions", "dockerfile", "docker-compose", "nodenv"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest"],
+      groupName: "infra dependencies",
+    },
+    {
+      description: "Majors get their own PR and a label to consider a release note",
+      matchUpdateTypes: ["major"],
+      labels: ["dependencies", "major"],
+    },
+    {
+      description: "Keep Node in sync across the Dockerfile, .node-version and CI",
+      matchDepNames: ["node"],
+      groupName: "Node.js",
+    },
+    {
+      description: "Python upgrades are done by hand: the uv build stage, the runtime image, requires-python and ruff's target-version must move together, or the venv breaks",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["python", "ghcr.io/astral-sh/uv"],
+      matchUpdateTypes: ["major", "minor"],
+      enabled: false,
+    },
+    {
+      description: "requires-python is a floor, not a dependency: leave it alone, or the pin strategy rewrites it to an exact version no base image provides",
+      matchManagers: ["pep621"],
+      matchDepNames: ["python"],
+      enabled: false,
+    },
+    {
+      description: "Our own released image in docker-compose.yml",
+      matchPackageNames: ["ghcr.io/msitt/hushcast"],
+      enabled: false,
+    },
+  ],
+}
