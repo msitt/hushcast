@@ -26,6 +26,10 @@ jobs:
       IMAGE: ghcr.io/${{ github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and tags, so the release can see which commits are
+          # new since the last tag.
+          fetch-depth: 0
 
       - name: Check tag does not already exist
         run: |

@@ -35,6 +35,11 @@ someone using or deploying hushcast. Err on the succinct side.
 New features, significant behavior changes, and important bugfixes. Not needed
 for styling tweaks, copy adjustments, internal refactors, or test-only changes.
 
+Routine dependency updates don't need one either. If Renovate authored any
+commit since the last release, the release adds a generic "Updated
+dependencies." line under Changed. Security fixes and major upgrades that
+change behavior still deserve a fragment of their own.
+
 ## Checking your work
 
 ```bash

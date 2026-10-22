@@ -9,7 +9,10 @@ changelog.d/README.md). Nothing is ever hand-edited in CHANGELOG.md, which
 keeps concurrent work and releases from fighting over the same lines.
 
 Release steps:
-  - requires at least one well-formed fragment in changelog.d/
+  - adds an "Updated dependencies." line under Changed when Renovate has
+    authored any commit since the last release tag
+  - requires at least one release note (a well-formed fragment in changelog.d/
+    or the dependency line above)
   - bumps __version__ in backend/hushcast/__init__.py
   - bumps "version" in frontend/package.json and frontend/package-lock.json
   - renders the fragments into a new [X.Y.Z] - <today> section at the top of
@@ -22,6 +25,7 @@ Exits non-zero, with nothing modified, on any validation failure.
 
 import datetime
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,13 +38,17 @@ FRAGMENT_DIR = Path("changelog.d")
 # Keep a Changelog's section names, in the order they should be rendered.
 CATEGORIES = ["added", "changed", "deprecated", "removed", "fixed", "security"]
 
+# Dependency bumps get one generic line instead of a fragment per Renovate PR.
+DEPENDENCY_BOT = "renovate[bot]"
+DEPENDENCY_NOTE = "- Updated dependencies."
+
 
 def fail(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
     sys.exit(1)
 
 
-def load_fragments() -> dict[str, list[tuple[Path, str]]]:
+def load_fragments() -> dict[str, list[tuple[Path | None, str]]]:
     """Read and validate changelog.d/, grouped by category.
 
     A fragment is named <category>-<slug>.md and holds the markdown bullet(s)
@@ -50,7 +58,7 @@ def load_fragments() -> dict[str, list[tuple[Path, str]]]:
     if not FRAGMENT_DIR.is_dir():
         fail(f"{FRAGMENT_DIR}/ does not exist")
 
-    grouped: dict[str, list[tuple[Path, str]]] = {c: [] for c in CATEGORIES}
+    grouped: dict[str, list[tuple[Path | None, str]]] = {c: [] for c in CATEGORIES}
     for path in sorted(FRAGMENT_DIR.glob("*.md")):
         if path.name == "README.md":
             continue
@@ -77,7 +85,36 @@ def load_fragments() -> dict[str, list[tuple[Path, str]]]:
     return grouped
 
 
-def render_section(grouped: dict[str, list[tuple[Path, str]]]) -> str:
+def git(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", *args], capture_output=True, text=True)
+
+
+def has_dependency_updates() -> bool:
+    """Whether Renovate authored any commit since the last release tag.
+
+    Squash and rebase merges keep Renovate as the author, and merge commits
+    bring its branch commits along, so this covers every merge style.
+    """
+    shallow = git("rev-parse", "--is-shallow-repository")
+    if shallow.returncode != 0:
+        fail(f"git rev-parse failed: {shallow.stderr.strip()}")
+    if shallow.stdout.strip() == "true":
+        fail(
+            "the checkout is shallow, so commits since the last release can't "
+            "be listed. Check out with fetch-depth: 0"
+        )
+
+    # No tag yet means this is the first release: look at all of history.
+    tag = git("describe", "--tags", "--abbrev=0", "--match", "v*")
+    rev_range = f"{tag.stdout.strip()}..HEAD" if tag.returncode == 0 else "HEAD"
+
+    log = git("log", "--format=%an", rev_range)
+    if log.returncode != 0:
+        fail(f"git log {rev_range} failed: {log.stderr.strip()}")
+    return DEPENDENCY_BOT in log.stdout.splitlines()
+
+
+def render_section(grouped: dict[str, list[tuple[Path | None, str]]]) -> str:
     """Render the fragments as a changelog section body (no version heading)."""
     blocks = []
     for category in CATEGORIES:
@@ -107,11 +144,14 @@ def main() -> None:
         fail(f"version {version!r} doesn't look like semver (X.Y.Z)")
 
     grouped = load_fragments()
+    if has_dependency_updates():
+        grouped["changed"].append((None, DEPENDENCY_NOTE))
     body = render_section(grouped)
     if not body:
         fail(
-            f"no release notes in {FRAGMENT_DIR}/. Add a fragment for each "
-            f"user-visible change before releasing"
+            f"no release notes in {FRAGMENT_DIR}/ and no dependency updates since "
+            f"the last release. Add a fragment for each user-visible change "
+            f"before releasing"
         )
 
     init_content = INIT_FILE.read_text(encoding="utf-8")
@@ -165,7 +205,8 @@ def main() -> None:
 
     for entries in grouped.values():
         for path, _ in entries:
-            path.unlink()
+            if path is not None:
+                path.unlink()
 
     notes_path.write_text(body + "\n", encoding="utf-8")
     print(f"prepared release {version}")

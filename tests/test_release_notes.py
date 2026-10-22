@@ -6,6 +6,7 @@ instead of half way through a release.
 """
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -103,3 +104,66 @@ def test_empty_fragment_is_rejected(release, capsys):
 def test_no_fragments_renders_nothing(release):
     """The normal state right after a release. --check has to stay green here."""
     assert release.render_section(release.load_fragments()) == ""
+
+
+RENOVATE = "renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>"
+
+
+@pytest.fixture
+def repo(release, tmp_path, monkeypatch):
+    """A scratch git repo in the release working directory, isolated from the
+    user's git config (signing, hooks, default branch) so commits always work."""
+    empty_config = tmp_path / "gitconfig"
+    empty_config.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    run_git("init", "-q")
+    run_git("config", "user.name", "Maintainer")
+    run_git("config", "user.email", "maintainer@example.com")
+    return release
+
+
+def run_git(*args: str) -> None:
+    subprocess.run(["git", *args], check=True, capture_output=True)
+
+
+def commit(author: str | None = None) -> None:
+    extra = ["--author", author] if author else []
+    run_git("commit", "-q", "--allow-empty", "-m", "change", *extra)
+
+
+def test_renovate_commit_since_last_tag_is_a_dependency_update(repo):
+    commit()
+    run_git("tag", "v1.0.0")
+    commit()
+    commit(RENOVATE)
+
+    assert repo.has_dependency_updates()
+
+
+def test_renovate_commit_before_last_tag_is_already_released(repo):
+    commit(RENOVATE)
+    run_git("tag", "v1.0.0")
+    commit()
+
+    assert not repo.has_dependency_updates()
+
+
+def test_first_release_looks_at_all_history(repo):
+    commit(RENOVATE)
+    commit()
+
+    assert repo.has_dependency_updates()
+
+
+def test_shallow_checkout_is_rejected(repo, tmp_path, monkeypatch, capsys):
+    commit()
+    commit()
+    clone = tmp_path / "clone"
+    run_git("clone", "-q", "--depth", "1", f"file://{tmp_path.as_posix()}", str(clone))
+    monkeypatch.chdir(clone)
+
+    with pytest.raises(SystemExit):
+        repo.has_dependency_updates()
+
+    assert "fetch-depth: 0" in capsys.readouterr().err

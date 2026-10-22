@@ -38,7 +38,7 @@ Autogenerate diffs models against whatever DB the env vars point at, so run it a
 
 ### Releases
 
-Releases are cut from the GitHub UI: Actions → Release → "Run workflow" on master with the new version. The workflow (`.github/workflows/release.yml` + `.github/scripts/prepare_release.py`) runs tests, bumps versions, combines `changelog.d/` into a new CHANGELOG.md section, builds and pushes the multi-arch image to `ghcr.io/msitt/hushcast`, pushes the release commit + tag, and creates a GitHub Release from that section. Version's single source of truth is `__version__` in `backend/hushcast/__init__.py` (pyproject reads it via hatchling). The workflow requires passing tests and at least one changelog fragment.
+Releases are cut from the GitHub UI: Actions → Release → "Run workflow" on master with the new version. The workflow (`.github/workflows/release.yml` + `.github/scripts/prepare_release.py`) runs tests, bumps versions, combines `changelog.d/` into a new CHANGELOG.md section, builds and pushes the multi-arch image to `ghcr.io/msitt/hushcast`, pushes the release commit + tag, and creates a GitHub Release from that section. Version's single source of truth is `__version__` in `backend/hushcast/__init__.py` (pyproject reads it via hatchling). The workflow requires passing tests and at least one release note: a changelog fragment, or a Renovate commit since the last tag (which adds a generic "Updated dependencies." line under Changed).
 
 `docker-compose.dev.yml` builds from the checkout, and `docker-compose.yml` pulls the released image.
 
@@ -46,7 +46,7 @@ Releases are cut from the GitHub UI: Actions → Release → "Run workflow" on m
 
 **Never edit CHANGELOG.md by hand.** It is written only by the release workflow. Pending release notes are one file per change in `changelog.d/`, named `<category>-<slug>.md`, where the category is one of `added`, `changed`, `deprecated`, `removed`, `fixed`, `security`. The file holds the markdown bullet for the change, leading `- ` included. See `changelog.d/README.md`.
 
-**Add a fragment as part of any significant user-visible change**, in the same commit: new features, behavior changes, and important bugfixes. Minor changes don't need one even if user-visible (e.g. styling tweaks, copy/wording adjustments), and neither do internal refactors/test-only changes. The release aborts if there are no fragments, so write the entry when the change lands, not at release.
+**Add a fragment as part of any significant user-visible change**, in the same commit: new features, behavior changes, and important bugfixes. Minor changes don't need one even if user-visible (e.g. styling tweaks, copy/wording adjustments), and neither do internal refactors/test-only changes. Dependency bumps from Renovate don't need one. The release aborts if there are no fragments and no Renovate commits, so write the entry when the change lands, not at release.
 
 Write entries for end users: what changed and why it matters, not how it was built. Leave out route names, module names, and other internals unless they matter to someone using or deploying the app. Err on the succinct side. Validate with `python3 .github/scripts/prepare_release.py --check` (CI runs this too).
 
