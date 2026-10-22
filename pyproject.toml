@@ -4,26 +4,26 @@ dynamic = ["version"]
 description = "Self-hosted podcast ad-removal server: transcribe, detect ads with an LLM, cut them out, serve clean RSS feeds."
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi==0.141.1",
-    "uvicorn[standard]==0.52.4",
-    "sqlalchemy[asyncio]==2.0.52",
+    "fastapi==0.143.3",
+    "uvicorn[standard]==0.54.0",
+    "sqlalchemy[asyncio]==2.1.5",
     "aiosqlite==0.22.1",
-    "alembic==1.19.1",
+    "alembic==1.20.0",
     "apscheduler==3.11.3",
     "httpx==0.28.1",
     "feedparser==6.0.14",
-    "pydantic==2.13.4",
-    "pydantic-settings==2.15.0",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.0",
     "python-slugify==8.0.4",
     "apprise==1.13.1",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx2==2.12.0",
+    "httpx2==2.13.1",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
-    "ruff==0.16.5",
+    "ruff==0.17.1",
 ]
 
 [build-system]
