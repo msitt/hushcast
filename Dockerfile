@@ -12,7 +12,7 @@ COPY backend/hushcast/__init__.py /backend/hushcast/__init__.py
 RUN npm run build
 
 # --- stage 2: install python deps ---
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS deps
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa9fe326f90962252268b4f120a7f5dccce4d947e6c1 AS deps
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock ./
