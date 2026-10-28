@@ -77,10 +77,11 @@ async def send_test(urls: list[str]) -> tuple[bool, str]:
     if bad:
         return False, f"could not parse {bad} of {len(urls)} URL(s), check the scheme/format"
     try:
-        ok = await apobj.async_notify(
+        # Apprise v2 returns an AppriseResult (truthy on success), which isn't JSON-serializable
+        ok = bool(await apobj.async_notify(
             title="Hushcast test notification",
             body="This is a test notification from Hushcast.",
-        )
+        ))
         return ok, ("sent" if ok else "one or more targets rejected the notification")
     except Exception as exc:
         return False, str(exc)
