@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Literal, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -20,7 +21,8 @@ from .deps import get_session
 
 router = APIRouter(prefix="/api", tags=["episodes"])
 
-REPROCESS_STEPS = ["download", "transcribe", "detect", "cut"]
+ReprocessStep = Literal["download", "transcribe", "detect", "cut"]
+REPROCESS_STEPS = list(get_args(ReprocessStep))
 
 
 def _original_file(ep: Episode) -> Path | None:
@@ -481,7 +483,7 @@ async def dismiss_failed_episodes(
 @router.post("/episodes/{episode_id}/reprocess")
 async def reprocess_episode(
     episode_id: int,
-    from_step: str = Query("detect", enum=REPROCESS_STEPS),
+    from_step: ReprocessStep = Query("detect"),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     ep = await session.get(Episode, episode_id)
