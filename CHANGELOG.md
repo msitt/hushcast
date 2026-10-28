@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.4.2] - 2026-10-28
+
+### Changed
+
+- Updated dependencies.
+
+### Removed
+
+- Removed confidence scores from ad detection. The LLM rated nearly every segment 0.9 or higher, so the "Min confidence" setting never filtered anything and the scores told you little. The setting and the Confidence column on the episode page are gone, and the default prompt no longer asks for a score. If you customized the detection prompt, you can remove the "confidence" field from its example output.
+
 ## [1.4.1] - 2026-10-23
 
 ### Changed
