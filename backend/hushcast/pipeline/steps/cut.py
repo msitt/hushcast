@@ -30,7 +30,7 @@ async def run(ctx: EpisodeContext) -> None:
             )
         ).scalars().all()
     segments = [
-        AdSegment(start=r.start_s, end=r.end_s, category=r.category, confidence=r.confidence)
+        AdSegment(start=r.start_s, end=r.end_s, category=r.category)
         for r in rows
     ]
 

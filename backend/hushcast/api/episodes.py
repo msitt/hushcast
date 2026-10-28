@@ -52,7 +52,6 @@ class SegmentOut(BaseModel):
     start_s: float
     end_s: float
     category: str
-    confidence: float
     reason: str
     kept: bool
     source: str
@@ -234,7 +233,6 @@ async def add_manual_segment(
             start_s=body.start_s,
             end_s=body.end_s,
             category=category,
-            confidence=1.0,
             reason="marked not-an-ad within a detected block",
             source="manual",
             kept=True,
@@ -255,7 +253,6 @@ async def add_manual_segment(
         start_s=body.start_s,
         end_s=body.end_s,
         category=body.category if body.category in ("ad", "sponsor", "self_promo") else "ad",
-        confidence=1.0,
         reason="added manually",
         source="manual",
         corrected_at=utcnow(),

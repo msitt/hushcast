@@ -8,7 +8,7 @@ from hushcast.detection.segments import (
     check_removed_fraction,
     clamp,
     extend_to_edges,
-    filter_thresholds,
+    filter_short,
     keep_ranges,
     merge,
     postprocess,
@@ -16,8 +16,8 @@ from hushcast.detection.segments import (
 )
 
 
-def seg(start, end, category="ad", confidence=0.9, reason=""):
-    return AdSegment(start=start, end=end, category=category, confidence=confidence, reason=reason)
+def seg(start, end, category="ad", reason=""):
+    return AdSegment(start=start, end=end, category=category, reason=reason)
 
 
 class TestClamp:
@@ -47,10 +47,10 @@ class TestSnap:
         assert snap_to_boundaries([seg(1, 2)], [], tolerance_s=5) == [seg(1, 2)]
 
 
-class TestThresholds:
-    def test_confidence_and_duration(self):
-        segments = [seg(0, 30, confidence=0.5), seg(0, 5, confidence=0.9), seg(50, 90, confidence=0.9)]
-        assert filter_thresholds(segments, min_confidence=0.6, min_duration_s=8) == [seg(50, 90, confidence=0.9)]
+class TestFilterShort:
+    def test_duration(self):
+        segments = [seg(0, 30), seg(0, 5), seg(50, 90)]
+        assert filter_short(segments, min_duration_s=8) == [seg(0, 30), seg(50, 90)]
 
 
 class TestMerge:
@@ -66,10 +66,6 @@ class TestMerge:
     def test_dedupes_chunk_overlap_duplicates(self):
         out = merge([seg(300, 360), seg(300, 360)], gap_s=5)
         assert out == [seg(300, 360)]
-
-    def test_keeps_max_confidence(self):
-        out = merge([seg(0, 30, confidence=0.7), seg(20, 60, confidence=0.95)], gap_s=5)
-        assert out[0].confidence == 0.95
 
     def test_category_prefers_longer_contributor(self):
         out = merge([seg(0, 10, category="self_promo"), seg(8, 60, category="sponsor")], gap_s=5)
@@ -156,14 +152,13 @@ class TestPostprocess:
     def test_end_to_end(self):
         boundaries = [float(x) for x in range(0, 1801, 10)]
         raw = [
-            seg(61.0, 122.0, confidence=0.9),     # snaps to 60-120
-            seg(118.0, 181.0, confidence=0.85),   # merges with previous
-            seg(900.0, 903.0, confidence=0.9),    # too short after snap (900-900) -> dropped
-            seg(1500.4, 1567.0, confidence=0.4),  # below confidence -> dropped
+            seg(61.0, 122.0),    # snaps to 60-120
+            seg(118.0, 181.0),   # merges with previous
+            seg(900.0, 903.0),   # too short after snap (900-900) -> dropped
         ]
         out = postprocess(
             raw, duration=1800, boundaries=boundaries, snap_tolerance_s=15,
-            min_confidence=0.6, min_duration_s=8, merge_gap_s=5, max_removed_pct=50,
+            min_duration_s=8, merge_gap_s=5, max_removed_pct=50,
         )
         assert len(out) == 1
         assert (out[0].start, out[0].end) == (60.0, 180.0)
@@ -175,7 +170,7 @@ class TestPostprocess:
         raw = [seg(0.0, 60.0), seg(180.0, 240.0)]
         kwargs = dict(
             duration=600, boundaries=boundaries, snap_tolerance_s=15,
-            min_confidence=0.6, min_duration_s=8, merge_gap_s=5,
+            min_duration_s=8, merge_gap_s=5,
             cue_intervals=[(60.0, 180.0)], bridge_max_gap_s=150,
         )
         out = postprocess(raw, max_removed_pct=50, **kwargs)
@@ -189,7 +184,7 @@ class TestPostprocess:
         raw = [seg(0.0, 60.0)]
         out = postprocess(
             raw, duration=120, boundaries=boundaries, snap_tolerance_s=15,
-            min_confidence=0.6, min_duration_s=8, merge_gap_s=5, max_removed_pct=90,
+            min_duration_s=8, merge_gap_s=5, max_removed_pct=90,
             refine_gaps=[WordGap(61.0, 62.0)], refine_window_s=4, refine_min_gap_s=0.15,
         )
         assert out[0].end == 61.5
@@ -202,12 +197,12 @@ def test_removed_pct_and_breaker_opt_out():
         removed_pct,
     )
 
-    segs = [AdSegment(start=0.0, end=29.0, category="self_promo", confidence=0.9)]
+    segs = [AdSegment(start=0.0, end=29.0, category="self_promo")]
     assert removed_pct(segs, 30.0) == pytest.approx(96.67, abs=0.01)
     assert removed_pct(segs, 0.0) == 0.0
     # None hands the circuit breaker to the caller, who then runs it explicitly
     kept = postprocess(segs, duration=30.0, boundaries=[0.0, 29.0], snap_tolerance_s=1.0,
-                       min_confidence=0.5, min_duration_s=1.0, merge_gap_s=1.0, max_removed_pct=None)
+                       min_duration_s=1.0, merge_gap_s=1.0, max_removed_pct=None)
     assert len(kept) == 1
     with pytest.raises(DetectionRejected):
         check_removed_fraction(kept, 30.0, 50.0)

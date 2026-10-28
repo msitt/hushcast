@@ -16,7 +16,6 @@ class AdSegment:
     start: float
     end: float
     category: str
-    confidence: float
     reason: str = ""
 
     @property
@@ -80,17 +79,15 @@ def snap_to_boundaries(
     return out
 
 
-def filter_thresholds(
-    segments: list[AdSegment], min_confidence: float, min_duration_s: float
-) -> list[AdSegment]:
-    return [s for s in segments if s.confidence >= min_confidence and s.duration >= min_duration_s]
+def filter_short(segments: list[AdSegment], min_duration_s: float) -> list[AdSegment]:
+    return [s for s in segments if s.duration >= min_duration_s]
 
 
 def merge(segments: list[AdSegment], gap_s: float) -> list[AdSegment]:
     """Merge overlapping segments and segments separated by less than gap_s.
 
     Handles duplicates coming from chunk overlaps. The merged segment keeps
-    the max confidence and the first non-empty reason. Category prefers the
+    the first non-empty reason. Category prefers the
     longer contributor.
     """
     if not segments:
@@ -105,7 +102,6 @@ def merge(segments: list[AdSegment], gap_s: float) -> list[AdSegment]:
                 start=last.start,
                 end=max(last.end, s.end),
                 category=category,
-                confidence=max(last.confidence, s.confidence),
                 reason=last.reason or s.reason,
             )
         else:
@@ -159,7 +155,6 @@ def bridge_over_cues(
                 start=last.start,
                 end=max(last.end, s.end),
                 category=category,
-                confidence=max(last.confidence, s.confidence),
                 reason=last.reason or s.reason,
             )
         else:
@@ -222,7 +217,6 @@ def postprocess(
     duration: float,
     boundaries: list[float],
     snap_tolerance_s: float,
-    min_confidence: float,
     min_duration_s: float,
     merge_gap_s: float,
     max_removed_pct: float | None = MAX_REMOVED_PCT,  # None = caller runs the circuit breaker itself
@@ -235,7 +229,7 @@ def postprocess(
 ) -> list[AdSegment]:
     segments = clamp(raw, duration)
     segments = snap_to_boundaries(segments, boundaries, snap_tolerance_s)
-    segments = filter_thresholds(segments, min_confidence, min_duration_s)
+    segments = filter_short(segments, min_duration_s)
     segments = merge(segments, merge_gap_s)
     if cue_intervals:
         segments = bridge_over_cues(segments, cue_intervals, max_bridge_gap_s=bridge_max_gap_s)

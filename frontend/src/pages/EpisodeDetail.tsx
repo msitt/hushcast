@@ -1070,7 +1070,6 @@ export function EpisodeDetailPage() {
                   <th>Range</th>
                   <th>Duration</th>
                   <th>Category</th>
-                  <th>Confidence</th>
                   <th>Reason</th>
                   <th></th>
                 </tr>
@@ -1107,7 +1106,6 @@ export function EpisodeDetailPage() {
                         s.kept && <span className="chip chip-tiny chip-dim">not an ad</span>
                       )}
                     </td>
-                    <td className="cell-nowrap">{Math.round(s.confidence * 100)}%</td>
                     <td className="cell-reason">{s.reason ?? "-"}</td>
                     <td className="cell-action">
                       {s.source === "promo" ? null : s.source === "llm" ? (

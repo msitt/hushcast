@@ -85,7 +85,6 @@ export interface SegmentOut {
   start_s: number;
   end_s: number;
   category: string;
-  confidence: number;
   reason: string | null;
   kept: boolean;
   source: "llm" | "manual" | "promo";
@@ -288,7 +287,6 @@ export interface Settings {
   max_episode_retries: number;
   keep_originals: boolean;
   keep_originals_days: number;
-  min_confidence: number;
   min_duration_s: number;
   promo_episode_action: "skip" | "passthrough";
   merge_gap_s: number;

@@ -51,10 +51,9 @@ SEGMENTS_SCHEMA: dict[str, Any] = {
                         "start": {"type": "number"},
                         "end": {"type": "number"},
                         "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)},
-                        "confidence": {"type": "number"},
                         "reason": {"type": "string"},
                     },
-                    "required": ["start", "end", "category", "confidence", "reason"],
+                    "required": ["start", "end", "category", "reason"],
                     "additionalProperties": False,
                 },
             },
@@ -290,16 +289,11 @@ def parse_detection(content: str) -> DetectionResult:
         category = str(item.get("category", "ad"))
         if category not in VALID_CATEGORIES:
             category = "ad"
-        try:
-            confidence = float(item.get("confidence", 1.0))
-        except (TypeError, ValueError):
-            confidence = 1.0
         out.append(
             AdSegment(
                 start=start,
                 end=end,
                 category=category,
-                confidence=max(0.0, min(confidence, 1.0)),
                 reason=str(item.get("reason", ""))[:1000],
             )
         )

@@ -70,7 +70,7 @@ plus `skipped` (pre-existing episodes are never auto-processed by design, queue 
 
 - `llm.py`: OpenAI-compatible chat-completions client. Single-pass over the whole transcript by default. Chunks only when over `llm_context_budget_tokens`. Malformed/truncated chunk output is retried.
 - `prompts.py`: prompt assembly. Per-feed `detection_hints` and correction-derived `learned_hints` are appended.
-- `segments.py`: pure, heavily unit-tested post-processing of raw LLM segments, in a fixed order: clamp → snap to transcript boundaries → threshold filters → merge → cue bridging/edge extension → word-boundary refinement → circuit breaker (`DetectionRejected` when too much would be cut).
+- `segments.py`: pure, heavily unit-tested post-processing of raw LLM segments, in a fixed order: clamp → snap to transcript boundaries → min-duration filter → merge → cue bridging/edge extension → word-boundary refinement → circuit breaker (`DetectionRejected` when too much would be cut).
 - `refine.py`: word-level boundary refinement (widest inter-word silence). Always on, no-op without word timestamps.
 - `corrections.py`: distills user corrections into learned hints (training signal only, review-before-apply).
 

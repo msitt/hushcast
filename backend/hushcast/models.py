@@ -146,7 +146,6 @@ class Segment(Base):
     start_s: Mapped[float] = mapped_column(Float)
     end_s: Mapped[float] = mapped_column(Float)
     category: Mapped[str] = mapped_column(String(20))  # ad|sponsor|self_promo
-    confidence: Mapped[float] = mapped_column(Float, default=1.0)
     reason: Mapped[str] = mapped_column(Text, default="")
     kept: Mapped[bool] = mapped_column(Boolean, default=False)  # user says: not an ad (false positive)
     # llm | manual (user-added false negative) | promo (promo-only episode, informational, never cut)

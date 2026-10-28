@@ -2,9 +2,9 @@ import pytest
 
 from hushcast.detection.llm import MALFORMED_RETRIES, ChatResult, _detect_chunk
 
-GOOD = '{"segments": [{"start": 0.0, "end": 29.8, "category": "sponsor", "confidence": 0.9, "reason": "ok"}]}'
+GOOD = '{"segments": [{"start": 0.0, "end": 29.8, "category": "sponsor", "reason": "ok"}]}'
 PROSE = "We need to identify ad segments. Let's go through the transcript lines."
-TRUNCATED = '{"segments": [{"start": 0.0, "end": 29.8, "category": "sponsor", "confidence": 0.9, "reason": "ok"}, {"start": 100.0, "en'
+TRUNCATED = '{"segments": [{"start": 0.0, "end": 29.8, "category": "sponsor", "reason": "ok"}, {"start": 100.0, "en'
 
 MESSAGES = [{"role": "system", "content": "sys"}, {"role": "user", "content": "transcript"}]
 

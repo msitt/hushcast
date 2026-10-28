@@ -21,7 +21,6 @@ export const NUMBER_KEYS: (keyof Settings)[] = [
   "max_concurrent_episodes",
   "max_episode_retries",
   "keep_originals_days",
-  "min_confidence",
   "min_duration_s",
   "merge_gap_s",
   "snap_tolerance_s",

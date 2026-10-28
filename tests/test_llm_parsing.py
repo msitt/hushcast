@@ -4,7 +4,7 @@ from hushcast.detection.llm import parse_json_object, parse_segments
 
 
 def test_plain_json():
-    out = parse_segments('{"segments": [{"start": 10, "end": 60, "category": "sponsor", "confidence": 0.9, "reason": "promo code"}]}')
+    out = parse_segments('{"segments": [{"start": 10, "end": 60, "category": "sponsor", "reason": "promo code"}]}')
     assert len(out) == 1
     assert out[0].category == "sponsor"
 
@@ -31,11 +31,6 @@ def test_bad_items_skipped():
     assert len(out) == 1
 
 
-def test_confidence_clamped():
-    out = parse_segments('{"segments": [{"start": 0, "end": 10, "confidence": 7}]}')
-    assert out[0].confidence == 1.0
-
-
 def test_missing_segments_key_raises():
     with pytest.raises(ValueError):
         parse_segments('{"result": []}')
@@ -49,7 +44,7 @@ def test_no_json_raises():
 def test_whole_episode_promo_flag():
     from hushcast.detection.llm import parse_detection
 
-    body = '{"segments": [{"start": 0, "end": 29, "category": "self_promo", "confidence": 0.9, "reason": "trailer"}]'
+    body = '{"segments": [{"start": 0, "end": 29, "category": "self_promo", "reason": "trailer"}]'
     assert parse_detection(body + ', "whole_episode_promo": true}').whole_episode_promo is True
     assert parse_detection(body + ', "whole_episode_promo": false}').whole_episode_promo is False
     # providers that ignore the schema omit it, sloppy models quote it

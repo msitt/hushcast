@@ -76,7 +76,7 @@ Rules:
   "segments". A regular episode with ads in it is not a promo episode.
 
 Respond with ONLY a JSON object in exactly this shape:
-{"segments": [{"start": 1347.2, "end": 1463.0, "category": "ad", "confidence": 0.9, "reason": "mid-roll break: PayPal, ChatGPT Work, Cincinnati Insurance"}], "whole_episode_promo": false}
+{"segments": [{"start": 1347.2, "end": 1463.0, "category": "ad", "reason": "mid-roll break: PayPal, ChatGPT Work, Cincinnati Insurance"}], "whole_episode_promo": false}
 """
 
 DEFAULTS: dict[str, Any] = {
@@ -108,7 +108,6 @@ DEFAULTS: dict[str, Any] = {
     "max_episode_retries": 3,
     "keep_originals": False,
     "keep_originals_days": 7,
-    "min_confidence": 0.6,
     "min_duration_s": 8.0,
     # what to do with an episode that is nothing but a promotion (trailer, cross-promo):
     # skip = leave it out of the served feed, passthrough = serve it untouched

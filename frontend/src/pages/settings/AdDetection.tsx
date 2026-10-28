@@ -12,7 +12,6 @@ const KEYS = [
   "llm_timeout_s",
   "detection_prompt",
   "global_learned_hints",
-  "min_confidence",
   "min_duration_s",
   "promo_episode_action",
   "merge_gap_s",
@@ -91,8 +90,6 @@ export function AdDetectionPage() {
 
       <Section title="Detection tuning">
         <div className="form-row">
-          <NumField draft={draft} set={set} k="min_confidence" label="Min confidence (0–1)" step="0.05"
-            hint="Detected segments below this LLM confidence are ignored." />
           <NumField draft={draft} set={set} k="min_duration_s" label="Min segment duration (s)" step="0.5"
             hint="Segments shorter than this are ignored. Filters one-line false positives." />
         </div>

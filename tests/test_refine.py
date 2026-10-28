@@ -9,8 +9,8 @@ from hushcast.detection.segments import AdSegment
 from hushcast.transcription.base import Transcript, TranscriptSegment, Word
 
 
-def seg(start, end, category="ad", confidence=0.9, reason=""):
-    return AdSegment(start=start, end=end, category=category, confidence=confidence, reason=reason)
+def seg(start, end, category="ad", reason=""):
+    return AdSegment(start=start, end=end, category=category, reason=reason)
 
 
 def make_transcript_with_words():

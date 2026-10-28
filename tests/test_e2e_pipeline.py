@@ -79,17 +79,17 @@ def make_stub_app(audio_path) -> FastAPI:
         elif app.state.llm_mode == "overcut":
             content = (
                 '{"segments": [{"start": 0.0, "end": 55.0, "category": "ad", '
-                '"confidence": 0.9, "reason": "everything"}], "whole_episode_promo": false}'
+                '"reason": "everything"}], "whole_episode_promo": false}'
             )
         elif app.state.llm_mode == "promo":
             content = (
                 '{"segments": [{"start": 0.0, "end": 55.0, "category": "self_promo", '
-                '"confidence": 0.9, "reason": "trailer for another show"}], "whole_episode_promo": true}'
+                '"reason": "trailer for another show"}], "whole_episode_promo": true}'
             )
         else:
             content = (
                 '{"segments": [{"start": 10.0, "end": 20.0, "category": "sponsor", '
-                '"confidence": 0.95, "reason": "promo code read"}]}'
+                '"reason": "promo code read"}]}'
             )
         return {"choices": [{"message": {"role": "assistant", "content": content}}]}
 
