@@ -2,7 +2,7 @@
 # Shell-form CMD is deliberate (${HUSHCAST_PORT} expansion; exec handles signals)
 
 # --- stage 1: build the SPA ---
-FROM node:24-slim AS frontend
+FROM node:26-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS frontend
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
