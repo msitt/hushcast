@@ -2,13 +2,15 @@ import { useSyncExternalStore } from "react";
 
 /**
  * Theme preference: an explicit light/dark choice, or "system" to follow the
- * OS. The resolved theme is applied as `data-theme="light" | "dark"` on
- * <html>. An inline script in index.html does the same before first paint.
+ * OS. Applied by setting <meta name="color-scheme"> to "light", "dark", or
+ * "light dark". CSS maps that meta onto the root `color-scheme`, so
+ * `light-dark()` tokens and native UI follow it, and "system" tracks OS
+ * changes without any JS. An inline script in index.html sets the meta
+ * before first paint.
  */
 export type ThemePreference = "light" | "system" | "dark";
 
 const STORAGE_KEY = "hushcast-theme";
-const media = window.matchMedia("(prefers-color-scheme: dark)");
 const listeners = new Set<() => void>();
 
 function readPreference(): ThemePreference {
@@ -24,18 +26,14 @@ function readPreference(): ThemePreference {
 let preference = readPreference();
 
 function apply() {
-  const resolved = preference === "system" ? (media.matches ? "dark" : "light") : preference;
-  document.documentElement.dataset.theme = resolved;
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
+  if (meta) meta.content = preference === "system" ? "light dark" : preference;
 }
 
 function notify() {
   apply();
   for (const fn of listeners) fn();
 }
-
-media.addEventListener("change", () => {
-  if (preference === "system") notify();
-});
 
 // Keep tabs in sync.
 window.addEventListener("storage", (e) => {

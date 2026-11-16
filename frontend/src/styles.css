@@ -1,14 +1,14 @@
 /* ============================================================
    hushcast design system
    Typeface: Space Grotesk (display) + IBM Plex Sans (UI), self-hosted.
-   Theme: light/dark from one token set, driven by data-theme on <html>
-   (set pre-paint in index.html, managed by src/theme.ts; "system"
-   preference resolves to a concrete value there). Brand accent #0c8175
-   matches the app icon's teal.
+   Theme: one token set of light-dark() pairs, resolved by the root
+   color-scheme. That follows the OS unless <meta name="color-scheme"> holds
+   a saved override (set pre-paint in index.html, managed by src/theme.ts).
+   Brand accent #0c8175 matches the app icon's teal.
    ============================================================ */
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 
   /* type scale */
   --font: "IBM Plex Sans Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -38,34 +38,34 @@
   --radius-pill: 999px;
 
   /* brand */
-  --accent: #0c8175;
-  --accent-hover: #0a6f66;
-  --accent-ink: #0a6f66;
-  --on-accent: #ffffff;
-  --accent-2: #2e9d63;
+  --accent: light-dark(#0c8175, #2fbfae);
+  --accent-hover: light-dark(#0a6f66, #4ccdbe);
+  --accent-ink: light-dark(#0a6f66, #6fd9cc);
+  --on-accent: light-dark(#ffffff, #0e1a18);
+  --accent-2: light-dark(#2e9d63, #55c98a);
 
-  /* light neutrals (one ramp, hue 225) */
-  --bg: #f4f5f9;
-  --bg-raised: #ffffff;
-  --bg-inset: #eef0f5;
-  --bg-hover: #eceef4;
-  --border: #e3e6ee;
-  --border-strong: #ccd2de;
-  --text: #1a2130;
-  --text-dim: #545e6f;
-  --text-faint: #67707f;
+  /* neutrals (one ramp per scheme, hue 225) */
+  --bg: light-dark(#f4f5f9, #12141b);
+  --bg-raised: light-dark(#ffffff, #1a1d27);
+  --bg-inset: light-dark(#eef0f5, #14161e);
+  --bg-hover: light-dark(#eceef4, #232735);
+  --border: light-dark(#e3e6ee, #262b3a);
+  --border-strong: light-dark(#ccd2de, #3a4154);
+  --text: light-dark(#1a2130, #e7eaf1);
+  --text-dim: light-dark(#545e6f, #a7aebd);
+  --text-faint: light-dark(#67707f, #838c9c);
 
   /* semantic */
-  --green: #15805a;
-  --red: #cf3339;
-  --amber: #94700e;
-  --blue: #1e6dc2;
-  --orange: #b05e12;
-  --purple: #8440c4;
+  --green: light-dark(#15805a, #43cf9c);
+  --red: light-dark(#cf3339, #f0787d);
+  --amber: light-dark(#94700e, #dfb64e);
+  --blue: light-dark(#1e6dc2, #6cadf2);
+  --orange: light-dark(#b05e12, #e79a56);
+  --purple: light-dark(#8440c4, #bd8ff0);
 
-  --shadow: 0 4px 16px rgba(24, 32, 52, 0.09);
-  --shadow-lg: 0 12px 40px rgba(24, 32, 52, 0.16);
-  --backdrop: rgba(22, 28, 44, 0.42);
+  --shadow: 0 4px 16px light-dark(rgba(24, 32, 52, 0.09), rgba(0, 0, 0, 0.35));
+  --shadow-lg: 0 12px 40px light-dark(rgba(24, 32, 52, 0.16), rgba(0, 0, 0, 0.5));
+  --backdrop: light-dark(rgba(22, 28, 44, 0.42), rgba(6, 8, 14, 0.6));
 
   /* motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
@@ -73,35 +73,14 @@
   --dur-med: 180ms;
 }
 
-:root[data-theme="dark"] {
+/* A saved override sets the meta to "light" or "dark". Map it back onto the
+   root, since author CSS beats the meta hint. Without JS the meta stays
+   "light dark" and the page follows the OS. */
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  color-scheme: light;
+}
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
   color-scheme: dark;
-
-  --accent: #2fbfae;
-  --accent-hover: #4ccdbe;
-  --accent-ink: #6fd9cc;
-  --on-accent: #0e1a18;
-  --accent-2: #55c98a;
-
-  --bg: #12141b;
-  --bg-raised: #1a1d27;
-  --bg-inset: #14161e;
-  --bg-hover: #232735;
-  --border: #262b3a;
-  --border-strong: #3a4154;
-  --text: #e7eaf1;
-  --text-dim: #a7aebd;
-  --text-faint: #838c9c;
-
-  --green: #43cf9c;
-  --red: #f0787d;
-  --amber: #dfb64e;
-  --blue: #6cadf2;
-  --orange: #e79a56;
-  --purple: #bd8ff0;
-
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
-  --backdrop: rgba(6, 8, 14, 0.6);
 }
 
 /* derived tints */
