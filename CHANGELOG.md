@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.4.3] - 2026-11-16
+
+### Changed
+
+- Updated dependencies.
+
 ## [1.4.2] - 2026-10-28
 
 ### Changed
