@@ -36,7 +36,7 @@ export function TranscriptionPage() {
           placeholder="https://api.example.com/v1"
           hint="OpenAI-compatible transcription server, e.g. https://api.openai.com/v1 or https://api.groq.com/openai/v1." />
         <div className="form-row">
-          <TextField draft={draft} set={set} k="transcription_api_key" label="API key" type="password" />
+          <TextField draft={draft} set={set} k="transcription_api_key" label="API key" secret />
           <TextField draft={draft} set={set} k="transcription_model" label="Model"
             hint="Model name the server expects, e.g. whisper-1 (OpenAI), whisper-large-v3 (groq), or large-v3 (whisperx)." />
         </div>

@@ -583,6 +583,9 @@ input[type="checkbox"] {
 textarea {
   resize: vertical;
 }
+.secret-input {
+  -webkit-text-security: disc;
+}
 textarea.mono {
   font-family: var(--mono);
   font-size: var(--text-xs);

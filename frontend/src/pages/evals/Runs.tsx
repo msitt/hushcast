@@ -15,6 +15,7 @@ import { useToasts } from "../../components/Toasts";
 import { useAsyncData } from "../../hooks";
 import { formatCost, formatDateTime, formatTokens } from "../../format";
 import { SECRET_MASK, testBadge } from "../settings/shared";
+import { SecretInput } from "../../components/SecretInput";
 
 const ACTIVE = ["queued", "running"];
 
@@ -75,13 +76,11 @@ function ConnectionPanel({ onSaved }: { onSaved: () => void }) {
           </label>
           <label className="field">
             <span className="field-label">API key</span>
-            <input
-              type="password"
+            <SecretInput
               value={key}
               onChange={(e) => setKey(e.target.value)}
               onFocus={() => key === SECRET_MASK && setKey("")}
               placeholder="Blank uses the production key"
-              autoComplete="off"
             />
             <span className="field-hint">
               A key is never sent to a different endpoint than the one it was entered for.
@@ -213,12 +212,10 @@ function ModelDialog({
           </label>
           <label className="field">
             <span className="field-label">API key (optional)</span>
-            <input
-              type="password"
+            <SecretInput
               value={d.api_key}
               onChange={set("api_key")}
               onFocus={() => d.api_key === SECRET_MASK && setD((p) => ({ ...p, api_key: "" }))}
-              autoComplete="off"
             />
             <span className="field-hint">
               Overrides the eval connection's key. Required when the base URL above is set.

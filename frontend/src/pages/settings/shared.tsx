@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckIcon, XIcon } from "@phosphor-icons/react";
 import { api, type Settings, type TestResult } from "../../api/client";
+import { SecretInput } from "../../components/SecretInput";
 import { useToasts } from "../../components/Toasts";
 import { useSettingsContext } from "./context";
 
@@ -183,6 +184,7 @@ export function TextField({
   step,
   placeholder,
   hint,
+  secret = false,
 }: {
   draft: Draft;
   set: (key: string, value: string | boolean) => void;
@@ -192,17 +194,22 @@ export function TextField({
   step?: string;
   placeholder?: string;
   hint?: string;
+  secret?: boolean;
 }) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
-      <input
-        type={type}
-        step={step}
-        placeholder={placeholder}
-        value={draft[k] as string}
-        onChange={(e) => set(k, e.target.value)}
-      />
+      {secret ? (
+        <SecretInput placeholder={placeholder} value={draft[k] as string} onChange={(e) => set(k, e.target.value)} />
+      ) : (
+        <input
+          type={type}
+          step={step}
+          placeholder={placeholder}
+          value={draft[k] as string}
+          onChange={(e) => set(k, e.target.value)}
+        />
+      )}
       {hint && <span className="field-hint">{hint}</span>}
     </label>
   );

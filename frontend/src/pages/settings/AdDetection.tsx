@@ -43,7 +43,7 @@ export function AdDetectionPage() {
           placeholder="https://api.example.com/v1"
           hint="OpenAI-compatible chat-completions endpoint, including the version path, e.g. https://api.openai.com/v1, https://ollama.com/v1, https://openrouter.ai/api/v1, etc." />
         <div className="form-row">
-          <TextField draft={draft} set={set} k="llm_api_key" label="API key" type="password" />
+          <TextField draft={draft} set={set} k="llm_api_key" label="API key" secret />
           <TextField draft={draft} set={set} k="llm_model" label="Model" hint="Exact model ID the provider expects." />
         </div>
         <div className="form-row">
