@@ -20,6 +20,7 @@ import { useProcessingActive } from "../components/SystemStatusContext";
 import { useToasts } from "../components/Toasts";
 import { CopyButton, CopyPre } from "../components/CopyButton";
 import { StatusChip } from "../components/StatusChip";
+import { EvalLabelPanel } from "../components/EvalLabelPanel";
 import {
   formatDate,
   formatDateTime,
@@ -507,12 +508,14 @@ function TranscriptViewer({
   episodeId,
   segments,
   hasCues,
+  rebuilt,
   onMarkAd,
   jumpRequest,
 }: {
   episodeId: string;
   segments: SegmentOut[];
   hasCues?: boolean;
+  rebuilt?: boolean;
   onMarkAd?: (startS: number, endS: number, notAd: boolean) => Promise<void>;
   jumpRequest?: { t: number; nonce: number } | null;
 }) {
@@ -678,6 +681,12 @@ function TranscriptViewer({
           {error && <div className="inline-error">{error}</div>}
           {transcript && (
             <>
+              {rebuilt && (
+                <p className="field-hint" style={{ marginBottom: 10 }}>
+                  Retention removed the transcript file, so this is rebuilt from the detection prompt: the same lines
+                  the model saw, without word timestamps.
+                </p>
+              )}
               <div className="transcript-meta">
                 {transcript.language && <span>Language: {transcript.language}</span>}
                 {transcript.duration != null && <span>Duration: {formatDuration(transcript.duration)}</span>}
@@ -1134,6 +1143,8 @@ export function EpisodeDetailPage() {
         )}
       </section>
 
+      <EvalLabelPanel ep={ep} onChanged={reload} />
+
       {ep.has_raw_transcript && <RawTranscriptionPanel episodeId={String(ep.id)} />}
 
       <LlmCallsPanel episodeId={String(ep.id)} />
@@ -1143,6 +1154,7 @@ export function EpisodeDetailPage() {
           episodeId={String(ep.id)}
           segments={removedSegments}
           hasCues={ep.has_cues}
+          rebuilt={ep.transcript_source === "llm_prompt"}
           onMarkAd={markRange}
           jumpRequest={jump}
         />

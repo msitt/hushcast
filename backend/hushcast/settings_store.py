@@ -97,6 +97,10 @@ DEFAULTS: dict[str, Any] = {
     "llm_context_budget_tokens": 6000,
     "llm_max_tokens": 16384,
     "llm_timeout_s": 600,
+    # Connection for eval runs. Blank falls back to the llm_* connection above.
+    # A dedicated key lets a gateway attribute eval spend separately.
+    "eval_llm_base_url": "",
+    "eval_llm_api_key": "",
     "detection_prompt": DEFAULT_DETECTION_PROMPT,
     # AI-distilled guidance from manual corrections, applied to every feed.
     # Owned by the distiller (review-before-apply), per-feed learned hints live
@@ -144,7 +148,7 @@ DEFAULTS: dict[str, Any] = {
     },
 }
 
-SECRET_KEYS = {"transcription_api_key", "llm_api_key"}
+SECRET_KEYS = {"transcription_api_key", "llm_api_key", "eval_llm_api_key"}
 PROMO_ACTIONS = ("skip", "passthrough")
 
 # Blank means "use the default", not "use an empty value". Deliberately narrow:

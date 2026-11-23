@@ -8,8 +8,8 @@ from sqlalchemy import delete, select
 
 from ...db import session_factory
 from ...detection import llm as llm_mod
-from ...detection import prompts, refine
 from ...detection import segments as seg
+from ...detection.finalize import finalize
 from ...models import LlmCall, Segment
 from .. import state
 from ..context import EpisodeContext
@@ -83,28 +83,11 @@ async def run(ctx: EpisodeContext) -> None:
     # to the end of the episode the tail gap refinement needs at the edge would
     # never exist and an outro ad's cut gets dragged inward (word_gaps docstring).
     duration = ctx.duration_s or transcript.duration
-
-    # boundary refinement is a no-op when the transcript has no word timestamps
-    refine_gaps = refine.word_gaps(refine.collect_words(transcript), duration) or None
-
-    final = seg.postprocess(
-        raw,
-        duration=duration,
-        boundaries=prompts.boundaries(transcript),
-        snap_tolerance_s=float(ctx.settings["snap_tolerance_s"]),
-        min_duration_s=float(ctx.settings["min_duration_s"]),
-        merge_gap_s=float(ctx.settings["merge_gap_s"]),
-        cue_intervals=[(c.start, c.end) for c in cues] if cues else None,
-        bridge_max_gap_s=float(ctx.settings["cue_bridge_max_gap_s"]),
-        edge_max_extension_s=float(ctx.settings["cue_edge_max_extension_s"]),
-        refine_gaps=refine_gaps,
-        refine_window_s=float(ctx.settings["refine_window_s"]),
-        refine_min_gap_s=float(ctx.settings["refine_min_gap_s"]),
-        max_removed_pct=None,  # the circuit breaker runs below, after the promo check
-    )
+    done = finalize(result, transcript=transcript, cues=cues, duration=duration, settings=ctx.settings)
+    final = done.segments
 
     removed = sum(s.duration for s in final)
-    pct = seg.removed_pct(final, duration)
+    pct = done.removed_pct
     ctx.metrics["detect_seconds"] = round(elapsed, 1)
     ctx.metrics["segments_raw"] = len(raw)
     ctx.metrics["segments_final"] = len(final)
@@ -114,10 +97,9 @@ async def run(ctx: EpisodeContext) -> None:
         f"{removed:.0f}s flagged ({pct:.1f}%), LLM time {elapsed:.0f}s"
     )
 
-    # A promo-only episode (trailer, cross-promo) is a distinct outcome, not a
-    # misfire: the LLM says so and the segments back it up. The setting decides
-    # whether it is dropped from the feed or served untouched.
-    if result.whole_episode_promo and pct >= seg.PROMO_MIN_COVERAGE_PCT:
+    # The setting decides whether a promo-only episode is dropped from the feed
+    # or served untouched.
+    if done.outcome == "promo":
         action = str(ctx.settings.get("promo_episode_action") or "skip")
         if action == "passthrough":
             # kept=True rows: visible in the UI, ignored by cut, not corrections.
@@ -136,14 +118,12 @@ async def run(ctx: EpisodeContext) -> None:
             "Process serves it untouched. Change the default under Settings → Ad detection → Promo-only episodes.",
         )
 
-    try:
-        seg.check_removed_fraction(final, duration, seg.MAX_REMOVED_PCT)
-    except seg.DetectionRejected as exc:
+    if done.outcome == "review":
         # Keep the segments so a human can trim them (mark not-an-ad, delete)
         # and then cut, or re-run detection. Retrying blindly only rewards
         # under-detection.
         await _store_segments(ctx.episode_id, final)
-        raise state.StopPipeline(state.REVIEW, str(exc), job_error=str(exc)) from exc
+        raise state.StopPipeline(state.REVIEW, done.rejection or "", job_error=done.rejection)
 
     await _store_segments(ctx.episode_id, final)
 

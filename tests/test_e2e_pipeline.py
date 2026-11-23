@@ -91,7 +91,11 @@ def make_stub_app(audio_path) -> FastAPI:
                 '{"segments": [{"start": 10.0, "end": 20.0, "category": "sponsor", '
                 '"reason": "promo code read"}]}'
             )
-        return {"choices": [{"message": {"role": "assistant", "content": content}}]}
+        resp = {"choices": [{"message": {"role": "assistant", "content": content}}]}
+        if body.get("model") == "stub-free":
+            # a provider that reports cost, and the model is free
+            resp["usage"] = {"prompt_tokens": 100, "completion_tokens": 20, "cost": 0.0}
+        return resp
 
     return app
 
@@ -226,6 +230,58 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         manual_id = r.json()["id"]
         assert r.json()["source"] == "manual"
 
+        # eval label: the corrected segments become the snapshotted truth
+        ep_url = f"/api/episodes/{episode['id']}"
+        r = client.put(f"{ep_url}/eval-label", json={"verdict": "verified"})
+        assert r.status_code == 200, r.text
+        label = r.json()
+        assert label["truth"] == [{"start": 30.0, "end": 45.0, "category": "ad"}]
+        assert label["transcript_source"] == "file"
+        assert label["matches_segments"] is True
+        listed = client.get(f"/api/feeds/{feed['id']}/episodes").json()["items"]
+        assert [e["eval_verdict"] for e in listed] == ["verified"]
+        # the eval set overview: one verified label, the feed is covered, nothing left to label
+        overview = client.get("/api/evals/labels").json()
+        assert (overview["verified"], overview["excluded"]) == (1, 0)
+        assert overview["verified_s"] == pytest.approx(60.0, abs=1.0)
+        assert [(f["verified"], f["candidates"]) for f in overview["feeds"]] == [(1, 0)]
+        row = overview["labels"][0]
+        assert (row["ad_ranges"], row["ad_s"], row["matches_segments"], row["hints_leak"]) == (1, 15.0, True, False)
+        assert client.get(ep_url).json()["next_unlabeled_id"] is None  # the feed's only episode
+        # undoing a correction leaves the snapshot alone but flags it as out of date
+        assert client.patch(f"/api/segments/{seg_id}", json={"kept": False}).status_code == 200
+        assert client.get(ep_url).json()["eval_label"]["matches_segments"] is False
+        assert client.patch(f"/api/segments/{seg_id}", json={"kept": True}).status_code == 200
+        assert client.get(ep_url).json()["eval_label"]["matches_segments"] is True
+
+        # with the transcript file gone (retention), it is rebuilt from the detection prompt
+        transcript_file = data_dir / "transcripts" / f"{episode['id']}.json"
+        stash = transcript_file.with_suffix(".stash")
+        transcript_file.rename(stash)
+        try:
+            assert client.get(ep_url).json()["transcript_source"] == "llm_prompt"
+            rebuilt = client.get(f"{ep_url}/transcript").json()
+            assert [s["text"] for s in rebuilt["segments"]] == [f"spoken line {i}" for i in range(12)]
+            r = client.put(f"{ep_url}/eval-label", json={"verdict": "verified"})
+            assert r.status_code == 200 and r.json()["transcript_source"] == "llm_prompt"
+        finally:
+            stash.rename(transcript_file)
+
+        export = client.get("/api/evals/export").json()
+        assert export["excluded"] == 0 and len(export["episodes"]) == 1
+        exported = export["episodes"][0]
+        assert exported["truth"] == label["truth"] and exported["duration_s"] == pytest.approx(60.0, abs=1.0)
+        assert len(exported["transcript"]["segments"]) == 12
+        assert "detection_prompt" in export["settings"] and "llm_api_key" not in export["settings"]
+        assert exported["hints_leak"] is False  # nothing has been distilled yet
+
+        r = client.put(f"{ep_url}/eval-label", json={"verdict": "excluded", "note": "bad transcript"})
+        assert r.json()["verdict"] == "excluded" and r.json()["truth"] is None
+        assert client.get("/api/evals/summary").json() == {"verified": 0, "excluded": 1}
+        assert client.get("/api/evals/export").json()["episodes"] == []
+        assert client.delete(f"{ep_url}/eval-label").status_code == 204
+        assert client.get(ep_url).json()["eval_label"] is None
+
         # feed now reports new corrections
         feed_now = client.get(f"/api/feeds/{feed['id']}").json()
         assert feed_now["new_corrections"] == 2
@@ -244,6 +300,84 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         assert r.json()["new_corrections"] == 0  # distilled_at now covers them
         client.put("/api/settings", json={"global_learned_hints": proposal["global_hints"]})
         assert client.get("/api/settings").json()["global_learned_hints"] == proposal["global_hints"]
+
+        # a label whose corrections were just distilled is flagged, and the
+        # export carries the current hints for evals to run with
+        assert client.put(f"{ep_url}/eval-label", json={"verdict": "verified"}).status_code == 200
+        export = client.get("/api/evals/export").json()
+        assert export["episodes"][0]["hints_leak"] is True
+        assert export["feeds"][str(feed["id"])]["learned_hints"] == proposal["feed_hints"]
+        assert export["global_learned_hints"] == proposal["global_hints"]
+
+        # eval runs in the server: two models over the one verified episode
+        calls_before = len(client.get(f"{ep_url}/llm-calls").json())
+        r = client.post("/api/evals/models", json={"name": "Unknown cost", "model": "stub-model"})
+        assert r.status_code == 201, r.text
+        unknown_id = r.json()["id"]
+        assert r.json()["effective_base_url"] == f"{stub_server}/v1" and r.json()["has_api_key"] is False
+        assert client.post("/api/evals/models", json={"name": "unknown cost", "model": "x"}).status_code == 409
+        free_id = client.post(
+            "/api/evals/models",
+            json={"name": "Free", "model": "stub-free", "api_key": "sk-eval", "extra_params": {"seed": 7}},
+        ).json()["id"]
+        listed = {m["name"]: m for m in client.get("/api/evals/models").json()}
+        assert listed["Free"]["has_api_key"] is True and "api_key" not in listed["Free"]
+        assert client.post(f"/api/evals/models/{free_id}/test").json()["ok"] is True
+        estimate = client.get("/api/evals/runs/estimate", params={"repeats": 2}).json()
+        assert (estimate["episodes"], estimate["detections"]) == (1, 2) and estimate["input_tokens"] > 0
+
+        r = client.post("/api/evals/runs", json={"model_ids": [unknown_id, free_id], "repeats": 2})
+        assert r.status_code == 201, r.text
+        run_ids = [x["id"] for x in r.json()]
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            runs = {x["id"]: x for x in client.get("/api/evals/runs").json()}
+            if all(runs[i]["status"] == "done" for i in run_ids):
+                break
+            time.sleep(0.2)
+        assert [runs[i]["status"] for i in run_ids] == ["done", "done"], runs
+        assert [(runs[i]["done"], runs[i]["total"], runs[i]["errors"]) for i in run_ids] == [(2, 2, 0)] * 2
+        # both runs have a usable result for the one verified episode
+        assert [(runs[i]["covered"], runs[i]["verified"]) for i in run_ids] == [(1, 1)] * 2
+        # unknown cost stays unknown, a reported zero is a real cost
+        assert runs[run_ids[0]]["cost_usd"] is None and runs[run_ids[1]]["cost_usd"] == 0.0
+        # eval calls never show up as the episode's own detection history
+        assert len(client.get(f"{ep_url}/llm-calls").json()) == calls_before
+
+        res = client.get("/api/evals/results", params={"runs": ",".join(map(str, run_ids))}).json()
+        assert [e["episode_id"] for e in res["episodes"]] == [episode["id"]]
+        assert res["leaked"] == 1 and res["mixed_conditions"] is False
+        scored = {x["name"]: x for x in res["runs"]}
+        assert scored["Unknown cost"]["total_cost_usd"] is None and scored["Free"]["total_cost_usd"] == 0.0
+        assert scored["Free"]["metrics"]["cost_per_episode_usd"]["mean"] == 0.0
+        assert scored["Unknown cost"]["metrics"]["cost_per_episode_usd"]["mean"] is None
+        # truth is 30-45s, the stub flags 10-20s: 10 s of content cut, the ad missed (15 s less the collar)
+        cell = scored["Free"]["episodes"][str(episode["id"])]
+        assert (cell["content_cut_s"], cell["missed_ad_s"], cell["weighted_s"]) == (10.0, 13.0, 43.0)
+        assert [x["segments"] for x in cell["repeats"]] == [[[10.0, 20.0, "sponsor"]]] * 2
+        heavier = client.get("/api/evals/results", params={"runs": str(run_ids[1]), "content_weight": 10}).json()
+        assert heavier["runs"][0]["episodes"][str(episode["id"])]["weighted_s"] == 113.0
+
+        # re-saving a label with unchanged inputs keeps results, a done run can't be cancelled or resumed
+        assert client.put(f"{ep_url}/eval-label", json={"verdict": "verified"}).status_code == 200
+        res = client.get("/api/evals/results", params={"runs": str(run_ids[0])}).json()
+        assert res["runs"][0]["stale_episodes"] == 0 and len(res["episodes"]) == 1
+        assert client.post(f"/api/evals/runs/{run_ids[0]}/cancel").status_code == 409
+        assert client.post(f"/api/evals/runs/{run_ids[0]}/resume").status_code == 409
+
+        # promoting only touches the model here: it has no endpoint of its own
+        r = client.post(f"/api/evals/models/{free_id}/promote").json()
+        assert r["changed"] == ["llm_model"] and r["extra_params_not_applied"] is True
+        assert client.get("/api/settings").json()["llm_model"] == "stub-free"
+        client.put("/api/settings", json={"llm_model": "stub-model"})
+
+        assert client.delete(f"/api/evals/models/{unknown_id}").status_code == 204
+        assert {x["id"]: x["model_id"] for x in client.get("/api/evals/runs").json()}[run_ids[0]] is None
+        for i in run_ids:
+            assert client.delete(f"/api/evals/runs/{i}").status_code == 204
+        assert client.get("/api/evals/runs").json() == []
+        assert client.delete(f"/api/evals/models/{free_id}").status_code == 204
+        assert client.delete(f"{ep_url}/eval-label").status_code == 204
 
         # manual segment can be deleted, llm segment cannot
         assert client.delete(f"/api/segments/{manual_id}").status_code == 204

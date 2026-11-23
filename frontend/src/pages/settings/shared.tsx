@@ -37,7 +37,7 @@ export const NUMBER_KEYS: (keyof Settings)[] = [
   "mp3_quality",
 ];
 
-export const SECRET_KEYS: (keyof Settings)[] = ["transcription_api_key", "llm_api_key"];
+export const SECRET_KEYS: (keyof Settings)[] = ["transcription_api_key", "llm_api_key", "eval_llm_api_key"];
 
 export type Draft = Record<string, string | boolean>;
 

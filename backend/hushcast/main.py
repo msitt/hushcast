@@ -10,11 +10,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, auth, logbuffer, loglevel, settings_store
-from .api import episodes, feeds, system
+from .api import episodes, evals, feeds, system
 from .api import search as search_api
 from .api import settings as settings_api
 from .config import get_config
 from .db import dispose_db, init_db, session_factory
+from .evals.jobs import manager as eval_runs
 from .pipeline import scheduler
 from .pipeline.worker import worker
 from .serve import rss as public_routes
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
         settings = await settings_store.get_all(session)
     loglevel.apply(loglevel.effective(settings))
     await worker.start()
+    await eval_runs.start()
     await scheduler.start()
     log.info(
         "hushcast %s ready (public_url=%s, auth=%s)",
@@ -49,6 +51,7 @@ async def lifespan(app: FastAPI):
     )
     yield
     scheduler.stop()
+    await eval_runs.stop()
     await worker.stop()
     await dispose_db()
 
@@ -69,6 +72,7 @@ async def auth_guard(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(feeds.router)
 app.include_router(episodes.router)
+app.include_router(evals.router)
 app.include_router(settings_api.router)
 app.include_router(search_api.router)
 app.include_router(system.router)

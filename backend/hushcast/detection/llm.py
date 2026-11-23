@@ -65,6 +65,30 @@ SEGMENTS_SCHEMA: dict[str, Any] = {
 }
 
 
+def reported_cost(payload: Any, headers: Any) -> float | None:
+    """The cost of one call in USD as the provider reported it, None if it didn't.
+
+    Zero is a real answer (a free model), distinct from "not reported".
+    OpenRouter-style responses carry usage.cost, and a LiteLLM proxy adds an
+    x-litellm-response-cost header.
+    """
+    candidates: list[Any] = []
+    if isinstance(payload, dict) and isinstance(payload.get("usage"), dict):
+        candidates.append(payload["usage"].get("cost"))
+    if headers is not None:
+        candidates.append(headers.get("x-litellm-response-cost"))
+    for value in candidates:
+        if value is None or isinstance(value, bool):
+            continue
+        try:
+            cost = float(value)
+        except (TypeError, ValueError):
+            continue
+        if cost >= 0 and cost == cost:  # rejects negatives and NaN
+            return cost
+    return None
+
+
 @dataclass
 class DetectionResult:
     segments: list[AdSegment]
@@ -88,6 +112,9 @@ class LLMClient:
         self.temperature = float(settings["llm_temperature"])
         self.max_tokens = int(settings.get("llm_max_tokens") or 16384)
         self.timeout_s = float(settings["llm_timeout_s"])
+        # Extra request-body fields (e.g. reasoning effort, provider routing).
+        # Not a stored setting: the eval runner sets it from a variant file.
+        self.extra_params: dict[str, Any] = {}
 
     async def chat(
         self,
@@ -109,6 +136,7 @@ class LLMClient:
             "max_tokens": self.max_tokens,
             "response_format": response_format,
         }
+        body.update({k: v for k, v in self.extra_params.items() if k != "messages"})
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         input_chars = sum(len(m["content"]) for m in messages)
         for m in messages:
@@ -139,7 +167,7 @@ class LLMClient:
         params = {k: v for k, v in body.items() if k != "messages"}
 
         async def record(*, response_text: str, response_json: Any, finish_reason: str | None,
-                         usage: dict[str, Any]) -> None:
+                         usage: dict[str, Any], cost_usd: float | None = None) -> None:
             if recorder is None:
                 return
             await recorder({
@@ -154,6 +182,7 @@ class LLMClient:
                 "finish_reason": finish_reason,
                 "prompt_tokens": usage.get("prompt_tokens"),
                 "completion_tokens": usage.get("completion_tokens"),
+                "cost_usd": cost_usd,
                 "elapsed_s": round(elapsed, 2),
             })
 
@@ -191,7 +220,10 @@ class LLMClient:
                 self.max_tokens,
             )
         log.debug("LLM response:\n%s", content)
-        await record(response_text=content, response_json=payload, finish_reason=finish_reason, usage=usage)
+        await record(
+            response_text=content, response_json=payload, finish_reason=finish_reason, usage=usage,
+            cost_usd=reported_cost(payload, resp.headers),
+        )
         return ChatResult(content=content, finish_reason=finish_reason)
 
     async def health_check(self) -> None:

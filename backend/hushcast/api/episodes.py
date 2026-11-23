@@ -14,7 +14,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_config
-from ..models import Episode, Job, LlmCall, Segment, utcnow
+from ..evals import labels as eval_labels
+from ..evals.truth import SegmentRow, effective_truth
+from ..models import Episode, EvalLabel, Job, LlmCall, Segment, utcnow
 from ..pipeline import state
 from ..pipeline.worker import worker
 from .deps import get_session
@@ -47,6 +49,7 @@ class EpisodeOut(BaseModel):
     processed_bytes: int | None
     ad_seconds_removed: float | None
     updated_at: datetime
+    eval_verdict: str | None = None  # verified | excluded, None = unlabeled
 
 
 class SegmentOut(BaseModel):
@@ -77,6 +80,13 @@ class EpisodeDetail(EpisodeOut):
     segments: list[SegmentOut]
     jobs: list[JobOut]
     has_transcript: bool
+    # file: the transcript on disk. llm_prompt: rebuilt from the stored
+    # detection prompt (retention removed the file), no word timestamps.
+    transcript_source: Literal["file", "llm_prompt"] | None
+    eval_label: dict | None
+    # the next older episode of this podcast that has a finished detection and
+    # no eval label yet, for labeling several in a row
+    next_unlabeled_id: int | None
     has_raw_transcript: bool
     has_cues: bool
     has_original: bool
@@ -103,12 +113,21 @@ async def list_episodes(
             .limit(page_size)
         )
     ).scalars().all()
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "items": [EpisodeOut.model_validate(e, from_attributes=True) for e in rows],
-    }
+    verdicts = dict(
+        (
+            await session.execute(
+                select(EvalLabel.episode_id, EvalLabel.verdict).where(
+                    EvalLabel.episode_id.in_([e.id for e in rows])
+                )
+            )
+        ).all()
+    ) if rows else {}
+    items = []
+    for e in rows:
+        item = EpisodeOut.model_validate(e, from_attributes=True)
+        item.eval_verdict = verdicts.get(e.id)
+        items.append(item)
+    return {"total": total, "page": page, "page_size": page_size, "items": items}
 
 
 @router.get("/episodes/{episode_id}")
@@ -126,8 +145,24 @@ async def episode_detail(episode_id: int, session: AsyncSession = Depends(get_se
             select(Job).where(Job.episode_id == episode_id).order_by(Job.id)
         )
     ).scalars().all()
+    has_file_transcript = (get_config().transcripts_dir / f"{episode_id}.json").exists()
+    transcript_source = None
+    if has_file_transcript:
+        transcript_source = "file"
+    elif await _has_llm_calls(session, episode_id):
+        transcript_source = "llm_prompt"
+    label = (
+        await session.execute(select(EvalLabel).where(EvalLabel.episode_id == episode_id))
+    ).scalar_one_or_none()
+    eval_label = None
+    if label is not None:
+        truth = effective_truth(
+            [SegmentRow(s.start_s, s.end_s, s.category, s.kept, s.source) for s in segments]
+        )
+        eval_label = eval_labels.label_out(label, truth)
     detail = EpisodeDetail(
-        **EpisodeOut.model_validate(ep, from_attributes=True).model_dump(),
+        **EpisodeOut.model_validate(ep, from_attributes=True).model_dump(exclude={"eval_verdict"}),
+        eval_verdict=label.verdict if label else None,
         description_html=ep.description_html,
         source_enclosure_url=ep.source_enclosure_url,
         segments=[SegmentOut.model_validate(s, from_attributes=True) for s in segments],
@@ -139,12 +174,42 @@ async def episode_detail(episode_id: int, session: AsyncSession = Depends(get_se
             )
             for j in jobs
         ],
-        has_transcript=(get_config().transcripts_dir / f"{episode_id}.json").exists(),
+        has_transcript=transcript_source is not None,
+        transcript_source=transcript_source,
+        eval_label=eval_label,
+        next_unlabeled_id=await _next_unlabeled(session, ep),
         has_raw_transcript=(get_config().transcripts_dir / f"{episode_id}.raw.json").exists(),
         has_cues=(get_config().cues_dir / f"{episode_id}.json").exists(),
         has_original=_original_file(ep) is not None,
     )
     return detail
+
+
+async def _next_unlabeled(session: AsyncSession, ep: Episode) -> int | None:
+    q = (
+        select(Episode.id)
+        .where(
+            Episode.feed_id == ep.feed_id,
+            Episode.id != ep.id,
+            Episode.status.in_((state.PROCESSED, state.EXPIRED, state.REVIEW)),
+            Episode.id.notin_(select(EvalLabel.episode_id)),
+            # whitelisted copy-through episodes never ran detection
+            Episode.id.in_(select(LlmCall.episode_id)),
+        )
+        .order_by(Episode.published_at.desc().nulls_last(), Episode.id.desc())
+        .limit(1)
+    )
+    if ep.published_at is not None:
+        q = q.where(Episode.published_at < ep.published_at)
+    return (await session.execute(q)).scalar_one_or_none()
+
+
+async def _has_llm_calls(session: AsyncSession, episode_id: int) -> bool:
+    return bool(
+        (
+            await session.execute(select(func.count()).where(LlmCall.episode_id == episode_id))
+        ).scalar_one()
+    )
 
 
 def _load_transcript_for(episode_id: int):
@@ -397,11 +462,16 @@ async def download_original(episode_id: int, session: AsyncSession = Depends(get
 
 
 @router.get("/episodes/{episode_id}/transcript")
-async def episode_transcript(episode_id: int) -> dict:
+async def episode_transcript(episode_id: int, session: AsyncSession = Depends(get_session)) -> dict:
     path = get_config().transcripts_dir / f"{episode_id}.json"
-    if not path.exists():
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    # retention removed the file: rebuild it from the stored detection prompt
+    ep = await session.get(Episode, episode_id)
+    inputs = await eval_labels.detection_inputs(session, ep) if ep is not None else None
+    if inputs is None:
         raise HTTPException(404, "no transcript for this episode")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return inputs.transcript.to_json_dict()
 
 
 @router.get("/episodes/{episode_id}/transcript/raw")

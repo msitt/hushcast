@@ -91,3 +91,19 @@ export function formatElapsed(start: string | null, end: string | null): string 
   if (isNaN(s) || isNaN(e) || e < s) return "-";
   return formatDuration((e - s) / 1000);
 }
+
+/** Token counts, compact above 10,000 ("1.4M", "32k"). */
+export function formatTokens(n: number): string {
+  if (n >= 1_000_000_000_000) return `${(n / 1_000_000_000_000).toFixed(1)}T`;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  return n.toLocaleString();
+}
+
+/** USD. null is an unknown cost ("-"), 0 is a real one ("$0.00"). Small amounts keep four decimals. */
+export function formatCost(usd: number | null | undefined): string {
+  if (usd == null || !isFinite(usd)) return "-";
+  if (usd === 0) return "$0.00";
+  return usd < 1 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(2)}`;
+}

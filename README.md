@@ -159,6 +159,8 @@ uv run alembic revision --autogenerate -m "describe the change"
 uv run alembic upgrade head        # or just restart the app
 ```
 
+To compare LLMs on ad detection against episodes you've checked by hand, see [docs/evals.md](docs/evals.md).
+
 ## License
 
 [AGPL-3.0](LICENSE)

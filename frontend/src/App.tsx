@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, Route, Routes } from "react-router-dom";
-import { GearSixIcon, MicrophoneIcon, PulseIcon, SignOutIcon } from "@phosphor-icons/react";
+import { FlaskIcon, GearSixIcon, MicrophoneIcon, PulseIcon, SignOutIcon } from "@phosphor-icons/react";
 import hushcastIcon from "./assets/hushcast-icon.svg";
 import { ToastProvider } from "./components/Toasts";
 import { AuthGate, useAuth } from "./components/AuthGate";
@@ -11,6 +11,7 @@ import { PodcastDetailPage } from "./pages/PodcastDetail";
 import { EpisodeDetailPage } from "./pages/EpisodeDetail";
 import { SettingsLayout } from "./pages/settings/SettingsLayout";
 import { SystemPage } from "./pages/System";
+import { EvalsPage } from "./pages/Evals";
 import { useSystemStatus } from "./components/SystemStatusContext";
 
 function Layout() {
@@ -27,6 +28,10 @@ function Layout() {
           <NavLink to="/" end aria-label="Podcasts" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
             <span className="nav-icon"><MicrophoneIcon size={18} weight="duotone" /></span>
             <span className="nav-label">Podcasts</span>
+          </NavLink>
+          <NavLink to="/evals" aria-label="Evals" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+            <span className="nav-icon"><FlaskIcon size={18} weight="duotone" /></span>
+            <span className="nav-label">Evals</span>
           </NavLink>
           <NavLink to="/settings" aria-label="Settings" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
             <span className="nav-icon"><GearSixIcon size={18} weight="duotone" /></span>
@@ -76,6 +81,7 @@ export default function App() {
             <Route path="/" element={<PodcastsPage />} />
             <Route path="/podcasts/:id" element={<PodcastDetailPage />} />
             <Route path="/episodes/:id" element={<EpisodeDetailPage />} />
+            <Route path="/evals/*" element={<EvalsPage />} />
             <Route path="/settings/*" element={<SettingsLayout />} />
             <Route path="/system" element={<SystemPage />} />
             <Route path="*" element={<div className="empty-hero"><h2>Not found</h2><p>That page does not exist.</p></div>} />

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type SystemAlert } from "../api/client";
-import { formatBytes, formatDuration, formatElapsed } from "../format";
+import { formatBytes, formatDuration, formatElapsed, formatTokens } from "../format";
 import { useAsyncData } from "../hooks";
 import { useSystemStatus } from "../components/SystemStatusContext";
 import { useToasts } from "../components/Toasts";
@@ -50,14 +50,6 @@ function AlertRow({ alert, onDismissFailed }: { alert: SystemAlert; onDismissFai
 }
 
 function formatCount(n: number): string {
-  return n.toLocaleString();
-}
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000_000_000) return `${(n / 1_000_000_000_000).toFixed(1)}T`;
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
   return n.toLocaleString();
 }
 

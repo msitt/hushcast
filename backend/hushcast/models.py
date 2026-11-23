@@ -207,3 +207,112 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text)  # JSON-encoded
     is_secret: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class EvalLabel(Base):
+    """A human verdict on an episode for the detection eval set.
+
+    verified: the stored truth spans are the complete, correct ad ranges. The
+    row snapshots everything a detection re-run needs (transcript, cues,
+    duration) because the episode's own files are retention-swept and
+    its segments are wiped by re-detect. Hints are not snapshotted, evals run
+    with the current ones.
+    excluded: kept out of the eval set (e.g. a bad transcript), note says why.
+    """
+
+    __tablename__ = "eval_labels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    episode_id: Mapped[int] = mapped_column(
+        ForeignKey("episodes.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    verdict: Mapped[str] = mapped_column(String(20))  # verified | excluded
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # snapshot, verified labels only
+    truth_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # [{start, end, category}]
+    promo: Mapped[bool] = mapped_column(Boolean, default=False)  # truth is "promo-only episode"
+    transcript_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transcript_source: Mapped[str | None] = mapped_column(String(20), nullable=True)  # file | llm_prompt
+    cues_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    podcast_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    episode_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # earliest correction on the episode at snapshot time, to tell whether the
+    # current learned hints may have been distilled from this episode
+    first_corrected_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # hash of the transcript and cues snapshot: a run's result for this episode
+    # is only comparable while the inputs it ran on are still the label's
+    inputs_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+
+
+class EvalModel(Base):
+    """A model to run evals with. base_url/api_key override the eval connection
+    (settings eval_llm_*, falling back to the production llm_* connection)."""
+
+    __tablename__ = "eval_models"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True)
+    model: Mapped[str] = mapped_column(Text)
+    base_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    api_key: Mapped[str | None] = mapped_column(Text, nullable=True)  # secret, never returned by the API
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
+    extra_params_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # added to the request body
+    # manual USD prices per million tokens, used only when the provider reports no cost
+    input_per_mtok: Mapped[float | None] = mapped_column(Float, nullable=True)
+    output_per_mtok: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class EvalRun(Base):
+    """One model run over the verified eval set."""
+
+    __tablename__ = "eval_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("eval_models.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # snapshots, so a run stays readable after its model entry changes or is deleted
+    name: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(Text)
+    config_json: Mapped[str] = mapped_column(Text, default="{}")  # endpoint, temperature, extra params, pricing
+    hints_mode: Mapped[str] = mapped_column(String(10), default="current")  # current | none
+    repeats: Mapped[int] = mapped_column(Integer, default=3)
+    total: Mapped[int] = mapped_column(Integer, default=0)  # episode detections planned
+    # hash of the hints and detection settings the run used: runs with
+    # different fingerprints were not run under the same conditions
+    fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # queued | running | done | cancelled | interrupted | failed
+    status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class EvalResult(Base):
+    """One detection of one episode within a run. Kept apart from llm_calls on
+    purpose: eval calls must not show up as an episode's detection history."""
+
+    __tablename__ = "eval_results"
+    __table_args__ = (UniqueConstraint("run_id", "episode_id", "repeat", name="uq_eval_result"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("eval_runs.id", ondelete="CASCADE"), index=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id", ondelete="CASCADE"), index=True)
+    repeat: Mapped[int] = mapped_column(Integer)
+    outcome: Mapped[str] = mapped_column(String(10))  # cut | promo | review | error
+    segments_json: Mapped[str] = mapped_column(Text, default="[]")  # [[start, end, category]]
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calls: Mapped[int] = mapped_column(Integer, default=0)
+    retries: Mapped[int] = mapped_column(Integer, default=0)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = unknown, 0 = free
+    llm_elapsed_s: Mapped[float] = mapped_column(Float, default=0.0)
+    inputs_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # the label inputs it ran on
+    responses_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # raw LLM replies, for debugging
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

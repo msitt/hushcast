@@ -807,6 +807,279 @@ select {
   font-size: var(--text-sm);
   color: var(--text-dim);
 }
+.eval-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.eval-label p {
+  margin: 0;
+}
+.eval-exclude {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.eval-exclude input {
+  flex: 1 1 240px;
+  width: auto;
+}
+.eval-next {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-sm);
+}
+.evals-intro {
+  color: var(--text-dim);
+  max-width: 72ch;
+  margin: 0 0 var(--space-5);
+}
+.evals-stats {
+  margin-bottom: var(--space-5);
+}
+.evals-chips .chip + .chip {
+  margin-left: 6px;
+}
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.eval-chip-gap {
+  margin-left: 6px;
+}
+.eval-check-cell {
+  width: 28px;
+}
+.eval-start {
+  display: flex;
+  align-items: end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin: var(--space-4) 0 var(--space-2);
+}
+.eval-start .field {
+  width: 130px;
+}
+.eval-start select {
+  width: 100%;
+}
+.eval-progress-cell {
+  min-width: 180px;
+}
+.eval-progress {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-inset);
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.eval-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--dur-med) var(--ease-out);
+}
+.eval-run-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-4);
+}
+.eval-run-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.eval-run-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.eval-controls {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.eval-controls .field {
+  width: 220px;
+}
+.eval-metrics th.num {
+  vertical-align: bottom;
+}
+.eval-th-model {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-faint);
+}
+.eval-range {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+.eval-best {
+  font-weight: 700;
+}
+.eval-metrics th,
+.eval-metrics td {
+  white-space: nowrap;
+}
+.eval-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+/* cost versus error chart */
+.eval-chart {
+  margin: 0;
+}
+.eval-chart figcaption {
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  margin-bottom: var(--space-2);
+}
+.eval-chart figcaption strong {
+  color: var(--text);
+}
+.eval-chart svg {
+  width: 100%;
+  max-width: 760px;
+  height: auto;
+  display: block;
+}
+.eval-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.eval-tick,
+.eval-axis-title {
+  fill: var(--text-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.eval-axis-title {
+  fill: var(--text-dim);
+}
+.eval-dot {
+  fill: var(--accent);
+  stroke: var(--bg-raised);
+  stroke-width: 2;
+}
+.eval-point-label {
+  fill: var(--text);
+  font-size: 12px;
+}
+.eval-point {
+  outline: none;
+}
+.eval-point:hover .eval-dot,
+.eval-point:focus-visible .eval-dot {
+  stroke: var(--accent-ink);
+}
+
+/* episode timeline */
+.eval-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin: var(--space-3) 0;
+}
+.eval-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.eval-legend i {
+  display: inline-block;
+  width: 22px;
+  height: 10px;
+  border-radius: 2px;
+}
+.eval-timeline {
+  display: grid;
+  grid-template-columns: 52px minmax(160px, 1fr) minmax(150px, 0.6fr);
+  column-gap: var(--space-3);
+  row-gap: 6px;
+  align-items: center;
+}
+.eval-run-group,
+.eval-lane-row {
+  display: contents;
+}
+.eval-run-name {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.eval-lane-label,
+.eval-lane-note {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+.eval-lane-note {
+  overflow-wrap: anywhere;
+}
+.eval-lane {
+  position: relative;
+  height: 14px;
+  background: var(--bg-inset);
+  border-radius: 3px;
+}
+.eval-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  /* a surface-coloured gap keeps touching segments apart */
+  box-shadow: 0 0 0 1px var(--bg-inset);
+}
+.eval-seg-truth {
+  background: var(--text-faint);
+}
+.eval-seg-correct {
+  background: var(--accent);
+}
+/* hatched and hollow, so the three outcomes differ by more than colour */
+.eval-seg-content {
+  background: repeating-linear-gradient(135deg, var(--red) 0 3px, color-mix(in srgb, var(--red) 35%, transparent) 3px 6px);
+}
+.eval-seg-missed {
+  background: transparent;
+  border: 2px solid var(--orange);
+}
+.eval-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  .eval-timeline {
+    grid-template-columns: 44px 1fr;
+  }
+  .eval-lane-note {
+    grid-column: 2;
+  }
+}
 .detail-actions {
   display: flex;
   gap: 10px;
@@ -1070,6 +1343,14 @@ select {
 }
 .segment-kept {
   opacity: 0.55;
+}
+
+.eval-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  padding-bottom: var(--space-3);
 }
 
 .pagination {

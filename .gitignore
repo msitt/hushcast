@@ -15,3 +15,6 @@ data/
 
 # per-machine Claude Code notes
 CLAUDE.local.md
+
+# eval datasets, reports and response cache (private transcripts)
+.evals/

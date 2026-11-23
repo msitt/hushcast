@@ -78,6 +78,20 @@ export interface EpisodeOut {
   processed_bytes: number | null;
   ad_seconds_removed: number | null;
   updated_at: string | null;
+  eval_verdict: EvalVerdict | null;
+}
+
+export type EvalVerdict = "verified" | "excluded";
+
+export interface EvalLabelOut {
+  verdict: EvalVerdict;
+  note: string | null;
+  promo: boolean;
+  truth: { start: number; end: number; category: string }[] | null;
+  transcript_source: "file" | "llm_prompt" | null;
+  matches_segments: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SegmentOut {
@@ -89,6 +103,173 @@ export interface SegmentOut {
   kept: boolean;
   source: "llm" | "manual" | "promo";
   corrected_at: string | null;
+}
+
+export interface EvalSetLabel {
+  episode_id: number;
+  episode_title: string;
+  feed_id: number;
+  feed_title: string;
+  published_at: string | null;
+  verdict: EvalVerdict;
+  note: string | null;
+  promo: boolean;
+  ad_ranges: number | null;
+  ad_s: number | null;
+  duration_s: number | null;
+  transcript_source: "file" | "llm_prompt" | null;
+  matches_segments: boolean;
+  hints_leak: boolean;
+  updated_at: string;
+}
+
+export interface EvalSetFeed {
+  feed_id: number;
+  title: string;
+  verified: number;
+  excluded: number;
+  verified_s: number;
+  candidates: number;
+}
+
+export interface EvalSetOut {
+  verified: number;
+  excluded: number;
+  verified_s: number;
+  feeds: EvalSetFeed[];
+  labels: EvalSetLabel[];
+}
+
+export interface EvalModelOut {
+  id: number;
+  name: string;
+  model: string;
+  base_url: string | null;
+  has_api_key: boolean;
+  temperature: number | null;
+  extra_params: Record<string, unknown> | null;
+  input_per_mtok: number | null;
+  output_per_mtok: number | null;
+  effective_base_url: string;
+}
+
+export interface EvalModelIn {
+  name: string;
+  model: string;
+  base_url: string | null;
+  /** null leaves a stored key alone, "" clears it */
+  api_key: string | null;
+  temperature: number | null;
+  extra_params: Record<string, unknown> | null;
+  input_per_mtok: number | null;
+  output_per_mtok: number | null;
+}
+
+export type EvalRunStatus = "queued" | "running" | "done" | "cancelled" | "interrupted" | "failed";
+
+export interface EvalRunOut {
+  id: number;
+  model_id: number | null;
+  name: string;
+  model: string;
+  hints_mode: "current" | "none";
+  repeats: number;
+  total: number;
+  status: EvalRunStatus;
+  error: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  done: number;
+  errors: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  /** null = unknown, 0 = free */
+  cost_usd: number | null;
+  cost_unknown: number;
+  /** verified episodes this run has a usable result for, out of `verified` today */
+  covered: number;
+  verified: number;
+}
+
+export interface EvalEstimate {
+  episodes: number;
+  detections: number;
+  input_tokens: number;
+}
+
+export interface EvalSpread {
+  mean: number | null;
+  min: number | null;
+  max: number | null;
+}
+
+export interface EvalMetricRow {
+  key: string;
+  label: string;
+  kind: "pct" | "num";
+  digits: number;
+  better: "higher" | "lower";
+}
+
+/** [start, end, category] */
+export type EvalSegment = [number, number, string];
+
+export interface EvalRepeatResult {
+  repeat: number;
+  outcome: "cut" | "promo" | "review" | "error";
+  outcome_ok: boolean;
+  segments: EvalSegment[];
+  error: string | null;
+  scored: boolean;
+  content_cut_s: number;
+  missed_ad_s: number;
+  weighted_s: number;
+}
+
+export interface EvalEpisodeCell {
+  weighted_s: number | null;
+  content_cut_s: number | null;
+  missed_ad_s: number | null;
+  repeats: EvalRepeatResult[];
+}
+
+export interface EvalScoredRun {
+  run_id: number;
+  model_id: number | null;
+  name: string;
+  model: string;
+  status: EvalRunStatus;
+  hints_mode: "current" | "none";
+  repeats: number;
+  created_at: string;
+  fingerprint: string | null;
+  stale_episodes: number;
+  episodes_with_results: number;
+  metrics: Record<string, EvalSpread> | null;
+  metrics_clean: Record<string, EvalSpread> | null;
+  total_cost_usd: number | null;
+  episodes: Record<string, EvalEpisodeCell>;
+}
+
+export interface EvalResultEpisode {
+  episode_id: number;
+  episode_title: string;
+  feed_title: string;
+  duration_s: number;
+  promo: boolean;
+  truth: EvalSegment[];
+  hints_leak: boolean;
+}
+
+export interface EvalResultsOut {
+  config: { content_weight: number; collar_s: number; blunder_s: number };
+  metric_rows: EvalMetricRow[];
+  episodes: EvalResultEpisode[];
+  verified_episodes: number;
+  leaked: number;
+  mixed_conditions: boolean;
+  runs: EvalScoredRun[];
 }
 
 export interface JobOut {
@@ -108,6 +289,9 @@ export interface EpisodeDetailOut extends EpisodeOut {
   segments: SegmentOut[];
   jobs: JobOut[];
   has_transcript: boolean;
+  transcript_source: "file" | "llm_prompt" | null;
+  eval_label: EvalLabelOut | null;
+  next_unlabeled_id: number | null;
   has_raw_transcript: boolean;
   has_cues: boolean;
   has_original: boolean;
@@ -280,6 +464,8 @@ export interface Settings {
   llm_context_budget_tokens: number;
   llm_max_tokens: number;
   llm_timeout_s: number;
+  eval_llm_base_url: string;
+  eval_llm_api_key: string;
   detection_prompt: string;
   global_learned_hints: string;
   poll_interval_minutes: number;
@@ -446,6 +632,36 @@ export const api = {
     body: { start_s: number; end_s: number; category?: string; not_ad?: boolean }
   ) => post<SegmentOut>(`/api/episodes/${episodeId}/segments`, body),
   deleteSegment: (id: number) => request<void>(`/api/segments/${id}`, { method: "DELETE" }),
+  putEvalLabel: (episodeId: number | string, body: { verdict: EvalVerdict; note?: string | null }) =>
+    request<EvalLabelOut>(`/api/episodes/${episodeId}/eval-label`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteEvalLabel: (episodeId: number | string) =>
+    request<void>(`/api/episodes/${episodeId}/eval-label`, { method: "DELETE" }),
+  evalSet: () => get<EvalSetOut>("/api/evals/labels"),
+  evalModels: () => get<EvalModelOut[]>("/api/evals/models"),
+  createEvalModel: (body: EvalModelIn) => post<EvalModelOut>("/api/evals/models", body),
+  updateEvalModel: (id: number, body: EvalModelIn) =>
+    request<EvalModelOut>(`/api/evals/models/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteEvalModel: (id: number) => request<void>(`/api/evals/models/${id}`, { method: "DELETE" }),
+  testEvalModel: (id: number) => post<TestResult>(`/api/evals/models/${id}/test`),
+  promoteEvalModel: (id: number) =>
+    post<{ ok: boolean; changed: string[]; extra_params_not_applied: boolean }>(`/api/evals/models/${id}/promote`),
+  evalRuns: () => get<EvalRunOut[]>("/api/evals/runs"),
+  evalEstimate: (repeats: number) => get<EvalEstimate>(`/api/evals/runs/estimate?repeats=${repeats}`),
+  startEvalRuns: (body: { model_ids: number[]; repeats: number; hints_mode: "current" | "none" }) =>
+    post<EvalRunOut[]>("/api/evals/runs", body),
+  cancelEvalRun: (id: number) => post<{ ok: boolean }>(`/api/evals/runs/${id}/cancel`),
+  resumeEvalRun: (id: number) => post<{ ok: boolean }>(`/api/evals/runs/${id}/resume`),
+  deleteEvalRun: (id: number) => request<void>(`/api/evals/runs/${id}`, { method: "DELETE" }),
+  evalResults: (
+    runIds: number[],
+    cfg: { content_weight: number; collar: number; blunder: number },
+    signal?: AbortSignal
+  ) =>
+    request<EvalResultsOut>(
+      `/api/evals/results?runs=${runIds.join(",")}&content_weight=${cfg.content_weight}&collar=${cfg.collar}&blunder=${cfg.blunder}`,
+      { signal }
+    ),
+  evalsSummary: () => get<{ verified: number; excluded: number }>("/api/evals/summary"),
   distillFeed: (feedId: number | string) => post<DistillProposal>(`/api/feeds/${feedId}/distill`),
   getLlmCalls: (episodeId: number | string) => get<LlmCallSummary[]>(`/api/episodes/${episodeId}/llm-calls`),
   getLlmCall: (callId: number) => get<LlmCallDetail>(`/api/llm-calls/${callId}`),

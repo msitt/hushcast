@@ -434,8 +434,18 @@ export function PodcastDetailPage() {
                             <Link to={`/episodes/${ep.id}`}>{ep.title}</Link>
                           </td>
                           <td className="cell-nowrap">{formatDate(ep.published_at)}</td>
-                          <td>
+                          <td className="cell-nowrap">
                             <StatusChip status={ep.status} />
+                            {ep.eval_verdict === "verified" && (
+                              <span style={{ marginLeft: 6 }} className="chip chip-tiny chip-green" title="Verified ground truth for detection evals">
+                                eval
+                              </span>
+                            )}
+                            {ep.eval_verdict === "excluded" && (
+                              <span style={{ marginLeft: 6 }} className="chip chip-tiny chip-dim" title="Excluded from detection evals">
+                                eval excluded
+                              </span>
+                            )}
                           </td>
                           <td className="cell-nowrap">
                             {ep.ad_seconds_removed != null && ep.ad_seconds_removed > 0
