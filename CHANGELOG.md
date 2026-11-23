@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.5.0] - 2026-11-23
+
+### Added
+
+- Detection evals, on the new Evals page. Mark an episode's corrected segments as verified ground truth from its Eval label panel (or exclude it, for example when its transcript is bad), run any number of models over the verified set, and compare them: content cut and ads missed are scored separately, with a cost versus error chart and a per-episode timeline of where each model's cuts fell. Eval runs can use their own endpoint and API key, so a gateway can report their spend separately. See docs/evals.md.
+- Expired episodes show a transcript rebuilt from the detection prompt, so they can still be reviewed and corrected.
+
+### Changed
+
+- Updated dependencies.
+
 ## [1.4.3] - 2026-11-16
 
 ### Changed
