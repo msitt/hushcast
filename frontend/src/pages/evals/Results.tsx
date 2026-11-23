@@ -17,6 +17,8 @@ import { useToasts } from "../../components/Toasts";
 import { useAsyncData } from "../../hooks";
 import { formatCost, formatDate, formatDuration, formatTimestamp } from "../../format";
 import { Pager, usePaged } from "./Pager";
+import { Lane } from "../../components/Lane";
+import { subtract, union, type Iv } from "../../intervals";
 
 const MAX_COMPARED = 6;
 
@@ -156,49 +158,6 @@ function CostErrorChart({ points, unknown }: { points: ChartPoint[]; unknown: st
 
 // ---------------------------------------------------------------------------
 // episode timeline
-
-type Iv = [number, number];
-
-function union(a: Iv[]): Iv[] {
-  const out: Iv[] = [];
-  for (const [s, e] of [...a].filter((i) => i[1] > i[0]).sort((p, q) => p[0] - q[0])) {
-    const last = out[out.length - 1];
-    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
-    else out.push([s, e]);
-  }
-  return out;
-}
-
-function subtract(a: Iv[], b: Iv[]): Iv[] {
-  const out: Iv[] = [];
-  const cut = union(b);
-  for (const [s, e] of union(a)) {
-    let cursor = s;
-    for (const [bs, be] of cut) {
-      if (be <= cursor || bs >= e) continue;
-      if (bs > cursor) out.push([cursor, bs]);
-      cursor = Math.max(cursor, be);
-      if (cursor >= e) break;
-    }
-    if (cursor < e) out.push([cursor, e]);
-  }
-  return out;
-}
-
-function Lane({ duration, parts }: { duration: number; parts: { iv: Iv; kind: string; label: string }[] }) {
-  return (
-    <div className="eval-lane">
-      {parts.map((p, i) => (
-        <span
-          key={i}
-          className={`eval-seg eval-seg-${p.kind}`}
-          style={{ left: `${(100 * p.iv[0]) / duration}%`, width: `${Math.max(0.35, (100 * (p.iv[1] - p.iv[0])) / duration)}%` }}
-          title={`${p.label} ${formatTimestamp(p.iv[0])}–${formatTimestamp(p.iv[1])} (${formatDuration(p.iv[1] - p.iv[0])})`}
-        />
-      ))}
-    </div>
-  );
-}
 
 function repeatParts(truth: Iv[], optional: Iv[], r: EvalRepeatResult, collar: number) {
   // promo and failed outcomes cut nothing, whatever segments were returned

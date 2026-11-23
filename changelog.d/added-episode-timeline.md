@@ -1,0 +1,1 @@
+- Episode pages show the detected segments on a timeline, with ads, your corrections, and optional ranges drawn differently. Click a segment to open it in the transcript.

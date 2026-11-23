@@ -21,6 +21,7 @@ import { useToasts } from "../components/Toasts";
 import { CopyButton, CopyPre } from "../components/CopyButton";
 import { StatusChip } from "../components/StatusChip";
 import { EvalLabelPanel } from "../components/EvalLabelPanel";
+import { EpisodeTimeline } from "../components/EpisodeTimeline";
 import {
   formatDate,
   formatDateTime,
@@ -863,6 +864,8 @@ export function EpisodeDetailPage() {
   // nonce so re-clicking the same segment re-triggers the transcript jump
   const [jump, setJump] = useState<{ t: number; nonce: number } | null>(null);
   const jumpToTranscript = (t: number) => setJump((j) => ({ t, nonce: (j?.nonce ?? 0) + 1 }));
+  // The segment under the pointer, in the table or on the timeline, so each highlights the other.
+  const [hoverSegment, setHoverSegment] = useState<number | null>(null);
 
   // The global `processing` flag is polled separately every 5s, so a fast
   // pipeline (whitelisted feeds, tiny episodes) can flip it true then false
@@ -1097,6 +1100,12 @@ export function EpisodeDetailPage() {
             ? "Nothing has been cut yet. \"Not an ad\" and deleting segments change what \"Cut as shown\" removes, and they also feed the podcast's \"Distill hints\" step."
             : "Corrections are training signal: they feed the podcast's \"Distill hints\" step but never re-cut existing audio."}
         </p>
+        <EpisodeTimeline
+          ep={ep}
+          activeId={hoverSegment}
+          onHover={setHoverSegment}
+          onJump={ep.has_transcript ? jumpToTranscript : undefined}
+        />
         {ep.segments.length === 0 ? (
           <div className="empty-small">No segments detected.</div>
         ) : (
@@ -1113,7 +1122,12 @@ export function EpisodeDetailPage() {
               </thead>
               <tbody>
                 {ep.segments.map((s) => (
-                  <tr key={s.id} className={s.kept ? "segment-kept" : undefined}>
+                  <tr
+                    key={s.id}
+                    className={[s.kept ? "segment-kept" : "", s.id === hoverSegment ? "segment-hover" : ""].join(" ").trim() || undefined}
+                    onMouseEnter={() => setHoverSegment(s.id)}
+                    onMouseLeave={() => setHoverSegment(null)}
+                  >
                     <td className="cell-nowrap">
                       {ep.has_transcript ? (
                         <button

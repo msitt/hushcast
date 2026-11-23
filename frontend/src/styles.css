@@ -1054,6 +1054,19 @@ select {
   /* a surface-coloured gap keeps touching segments apart */
   box-shadow: 0 0 0 1px var(--bg-inset);
 }
+/* zero specificity on the element, so the kind classes below still set border and background */
+:where(button).eval-seg {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.eval-seg:focus-visible,
+.eval-seg-active {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+  z-index: 1;
+}
 .eval-seg-truth {
   background: var(--text-faint);
 }
@@ -1070,8 +1083,36 @@ select {
 }
 /* dashed and faint: present, but not something a model is judged on */
 .eval-seg-optional {
-  background: color-mix(in srgb, var(--text-faint) 30%, transparent);
+  /* opaque, so an ad underneath does not tint it */
+  background: color-mix(in srgb, var(--text-faint) 30%, var(--bg-inset));
   border: 1px dashed var(--text-faint);
+}
+/* episode page only: an ad the user added, with a blue edge like the "manual" chip */
+.eval-seg-manual {
+  background: var(--accent);
+  border-top: 4px solid var(--blue);
+}
+/* lane-coloured, so a trim reads as a hole punched in the ad block under it */
+.eval-seg-notad {
+  background: var(--bg-inset);
+  border: 1px solid var(--text-faint);
+}
+.eval-seg-promo {
+  background: color-mix(in srgb, var(--purple) 18%, transparent);
+  border: 1px dashed var(--purple);
+}
+.segment-timeline {
+  margin: var(--space-3) 0 var(--space-4);
+}
+.segment-timeline .eval-lane {
+  height: 18px;
+  margin-bottom: 6px;
+}
+.segment-timeline .field-hint {
+  margin: var(--space-2) 0 0;
+}
+.data-table tbody tr.segment-hover {
+  background: var(--accent-soft);
 }
 .eval-axis {
   display: flex;
