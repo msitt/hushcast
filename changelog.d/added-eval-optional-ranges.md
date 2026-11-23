@@ -1,0 +1,1 @@
+- Evals: mark audio that is fine to cut or to keep (network idents, bumpers, teasers) as optional from an episode's transcript. Models are not scored on optional ranges, and Results shows how much of them each model cut.

@@ -121,11 +121,23 @@ def truth_to_json(truth: Truth) -> str:
     return json.dumps([asdict(s) for s in truth.spans])
 
 
+def optional_to_json(truth: Truth) -> str:
+    return json.dumps([list(o) for o in truth.optional])
+
+
+def label_optional(label: EvalLabel) -> list[list[float]]:
+    return json.loads(label.optional_json) if label.optional_json else []
+
+
 def truth_matches(label: EvalLabel, truth: Truth) -> bool:
     """Whether a verified label still agrees with the episode's segments."""
     if label.verdict != "verified" or label.truth_json is None:
         return True
-    return label.promo == truth.promo and json.loads(label.truth_json) == json.loads(truth_to_json(truth))
+    return (
+        label.promo == truth.promo
+        and json.loads(label.truth_json) == json.loads(truth_to_json(truth))
+        and label_optional(label) == json.loads(optional_to_json(truth))
+    )
 
 
 async def save_label(
@@ -148,7 +160,7 @@ async def save_label(
     label.note = (note or "").strip() or None
     # an excluded episode keeps no snapshot: it isn't part of the dataset
     for attr in (
-        "truth_json", "transcript_json", "transcript_source", "cues_json", "duration_s",
+        "truth_json", "optional_json", "transcript_json", "transcript_source", "cues_json", "duration_s",
         "podcast_title", "episode_title", "first_corrected_at", "inputs_hash",
     ):
         setattr(label, attr, None)
@@ -165,6 +177,7 @@ async def save_label(
     # the corrections may already be distilled into the hints.
     label.first_corrected_at = min(corrected) if corrected else None
     label.truth_json = truth_to_json(truth)
+    label.optional_json = optional_to_json(truth) if truth.optional else None
     label.promo = truth.promo
     label.transcript_json = json.dumps(inputs.transcript.to_json_dict())
     label.transcript_source = inputs.transcript_source
@@ -184,6 +197,7 @@ def label_out(label: EvalLabel, truth: Truth) -> dict[str, Any]:
         "note": label.note,
         "promo": label.promo,
         "truth": json.loads(label.truth_json) if label.truth_json else None,
+        "optional": label_optional(label),
         "transcript_source": label.transcript_source,
         "matches_segments": truth_matches(label, truth),
         "created_at": label.created_at,
@@ -235,6 +249,7 @@ async def export_dataset(session: AsyncSession) -> dict[str, Any]:
             "duration_s": label.duration_s,
             "promo": label.promo,
             "truth": json.loads(label.truth_json or "[]"),
+            "optional": label_optional(label),
             "transcript_source": label.transcript_source,
             "transcript": json.loads(label.transcript_json or "{}"),
             "cues": json.loads(label.cues_json) if label.cues_json else None,

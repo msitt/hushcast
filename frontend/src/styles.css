@@ -1068,6 +1068,11 @@ select {
   background: transparent;
   border: 2px solid var(--orange);
 }
+/* dashed and faint: present, but not something a model is judged on */
+.eval-seg-optional {
+  background: color-mix(in srgb, var(--text-faint) 30%, transparent);
+  border: 1px dashed var(--text-faint);
+}
 .eval-axis {
   display: flex;
   justify-content: space-between;
@@ -1344,7 +1349,8 @@ select {
   color: var(--text-dim);
   max-width: 340px;
 }
-.segment-kept {
+/* Dim the row's content but not its action button, which would read as disabled. */
+.segment-kept td:not(.cell-action) {
   opacity: 0.55;
 }
 
@@ -1522,6 +1528,14 @@ select {
 .transcript-ad {
   background: color-mix(in srgb, var(--red) 13%, transparent);
   box-shadow: inset 2px 0 0 var(--red);
+}
+.transcript-optional {
+  box-shadow: inset 2px 0 0 var(--text-faint);
+  background: color-mix(in srgb, var(--text-faint) 12%, transparent);
+}
+.transcript-ad.transcript-optional {
+  background: color-mix(in srgb, var(--red) 13%, transparent);
+  box-shadow: inset 2px 0 0 var(--text-faint), inset 4px 0 0 var(--red);
 }
 /* Partial-line cut: only the removed words are tinted. The underline (vs the
    full line's left bar) signals "this line is clipped, not gone". */

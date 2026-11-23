@@ -244,6 +244,9 @@ class SegmentCreate(BaseModel):
     # True = "this sub-range of a detected block is NOT an ad" (boundary trim,
     # a false-positive correction). False = "this range is a missed ad".
     not_ad: bool = False
+    # True = "cutting or keeping this range is fine either way". Evals ignore
+    # it. Not a correction: nothing is cut and the distiller never sees it.
+    optional: bool = False
 
 
 @router.patch("/segments/{segment_id}")
@@ -253,7 +256,7 @@ async def patch_segment(
     seg = await session.get(Segment, segment_id)
     if seg is None:
         raise HTTPException(404, "segment not found")
-    if seg.source == "manual":
+    if seg.source in ("manual", "optional"):
         raise HTTPException(409, "manual segments are removed with DELETE, not toggled")
     if seg.source == "promo":
         raise HTTPException(409, "promo-only episode segments are informational and cannot be corrected")
@@ -278,6 +281,22 @@ async def add_manual_segment(
         raise HTTPException(404, "episode not found")
     if body.end_s <= body.start_s:
         raise HTTPException(400, "end must be after start")
+    if body.optional and body.not_ad:
+        raise HTTPException(400, "a range is either optional or not an ad, not both")
+
+    if body.optional:
+        seg = Segment(
+            episode_id=episode_id,
+            start_s=body.start_s,
+            end_s=body.end_s,
+            category="optional",
+            reason="marked optional: evals ignore this range",
+            source="optional",
+            kept=True,
+        )
+        session.add(seg)
+        await session.commit()
+        return SegmentOut.model_validate(seg, from_attributes=True)
 
     overlapping = (
         await session.execute(
@@ -335,7 +354,7 @@ async def delete_segment(segment_id: int, session: AsyncSession = Depends(get_se
     seg = await session.get(Segment, segment_id)
     if seg is None:
         raise HTTPException(404, "segment not found")
-    if seg.source != "manual":
+    if seg.source not in ("manual", "optional"):
         raise HTTPException(409, "only manually added segments can be deleted, use kept to override detected ones")
     await session.delete(seg)
     await session.commit()

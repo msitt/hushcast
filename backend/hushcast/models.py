@@ -149,6 +149,8 @@ class Segment(Base):
     reason: Mapped[str] = mapped_column(Text, default="")
     kept: Mapped[bool] = mapped_column(Boolean, default=False)  # user says: not an ad (false positive)
     # llm | manual (user-added false negative) | promo (promo-only episode, informational, never cut)
+    # | optional (eval-only: cutting or keeping this range is fine either way. Always kept=True,
+    # never cut and never a correction)
     source: Mapped[str] = mapped_column(String(10), default="llm")
     # Transcript excerpt snapshotted at correction time (range ±context), makes
     # corrections self-contained for the hint distiller.
@@ -231,6 +233,8 @@ class EvalLabel(Base):
     # snapshot, verified labels only
     truth_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # [{start, end, category}]
     promo: Mapped[bool] = mapped_column(Boolean, default=False)  # truth is "promo-only episode"
+    # [[start, end]] ranges scoring ignores: cutting or keeping them is fine either way
+    optional_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript_source: Mapped[str | None] = mapped_column(String(20), nullable=True)  # file | llm_prompt
     cues_json: Mapped[str | None] = mapped_column(Text, nullable=True)

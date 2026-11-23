@@ -4,7 +4,11 @@ Compare LLMs on how well they find ads, scored against episodes you have checked
 
 ## 1. Label episodes
 
-On an episode page, fix the detected segments first: mark false positives "Not an ad", add missed ads from the transcript, and trim block edges. Then use the **Eval label** panel:
+On an episode page, fix the detected segments first: mark false positives "Not an ad", add missed ads from the transcript, and trim block edges.
+
+Some audio has no right answer: a network ident, a "you're listening to" bumper, a "coming up after the break" teaser, closing credits with a plug in them. Select those lines in the transcript and choose **Mark as optional**. An optional range is fine to cut and fine to keep, so models are not scored on it. It works on its own or over part of a detected segment, it is not a correction (nothing is cut and it never feeds "Distill hints"), and **Remove** in the segments table takes it away again. Use it for judgment calls only. A real ad or real content still needs a real answer.
+
+Then use the **Eval label** panel:
 
 - **Verify segments** saves the segments as the episode's ground truth. The label keeps its own copy of the transcript, cues and duration, so it survives retention cleanup and re-detection.
 - **Exclude** keeps an episode out of the eval set, with a reason. Use it for episodes that can't serve as truth, such as a transcript with silence or another feed's ads in it.
@@ -47,6 +51,7 @@ The **Results** tab picks one run per model by default, and only runs that cover
 | ad blocks found | truth blocks at least half covered by a cut |
 | spurious blocks | cuts mostly outside any ad |
 | start / end error | how far found blocks' edges land from the truth. A negative start or positive end cuts content. |
+| optional ranges cut | share of the optional audio a model removed. Shown for information: it is not part of any other number, and neither direction is better. |
 | outcome correct | cut vs promo-only. A circuit-breaker review counts as wrong. |
 
 Scoring controls re-score everything in place, since runs store predictions and not scores:
@@ -54,6 +59,8 @@ Scoring controls re-score everything in place, since runs store predictions and 
 - **Content weight** (default 3): how many seconds of missed ad one second of cut content is worth. Try a few values and see whether the ranking changes.
 - **Collar** (default 1 s): ignored on each side of every ground-truth boundary, since labels and transcript line edges are only accurate to about a second.
 - **Blunder** (default 5 s): the content cut in one episode that counts as a blunder.
+
+Optional ranges are left out the same way as the collar: cutting one is not content cut, keeping one is not a missed ad, and a cut that covers only optional audio is not a spurious block. Ad ranges separated only by optional audio count as one block.
 
 Below the table, the cost versus error chart shows which models are worth their price, and the per-episode table opens a timeline of where each run's cuts fell against the ground truth. Filter that table by podcast, or sort it to bring up the episodes a model did worst on or the ones the models disagree on most. **Use this model** makes a model the one production detection uses.
 

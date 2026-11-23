@@ -9,6 +9,11 @@ ranks models while the raw pair stays visible. A collar around every truth
 boundary is ignored for both: labels and transcript line edges are only
 accurate to a second or two, and scoring that slack rewards luck.
 
+Optional ranges are ignored the same way. They mark audio where cutting and
+keeping are both acceptable (a network ident, a "coming up" teaser), so a
+prediction is neither rewarded nor punished there. How much of them a model
+cuts is reported on its own and stays out of every other number.
+
 Promo-only episodes (truth or prediction) are scored on the outcome only.
 """
 from __future__ import annotations
@@ -41,11 +46,14 @@ class EpisodeScore:
     pred_ad_s: float = 0.0
     content_cut_s: float = 0.0
     missed_ad_s: float = 0.0
+    optional_s: float = 0.0
+    optional_cut_s: float = 0.0  # informational, not part of any error
     truth_blocks: int = 0
     found_blocks: int = 0
     spurious_blocks: int = 0
     # per truth block found: (pred start - truth start, pred end - truth end).
-    # A negative start or positive end error cuts content.
+    # A negative start or positive end error cuts content. Optional audio
+    # between the two edges does not count toward the distance.
     boundary_errors: list[tuple[float, float]] = field(default_factory=list)
 
     def weighted_error_s(self, cfg: ScoreConfig) -> float:
@@ -70,6 +78,17 @@ def _collar(truth: list[Interval], collar_s: float, duration: float) -> list[Int
     return union(zones)
 
 
+def _blocks(truth_u: list[Interval], opt_u: list[Interval]) -> list[Interval]:
+    """Truth blocks for the block metrics. Truth ranges separated only by
+    optional audio are one block, since a single cut across them is correct."""
+    out = []
+    for rs, re_ in union(truth_u + opt_u):
+        inside = [(s, e) for s, e in truth_u if s >= rs and e <= re_]
+        if inside:
+            out.append((inside[0][0], inside[-1][1]))
+    return out
+
+
 def score_episode(
     *,
     episode_id: int,
@@ -79,15 +98,18 @@ def score_episode(
     predicted: list[Interval],
     outcome: str,
     cfg: ScoreConfig,
+    optional: list[Interval] | None = None,
 ) -> EpisodeScore:
     expected = "promo" if truth_promo else "cut"
     if truth_promo:
         return EpisodeScore(episode_id, duration_s, expected, outcome, seconds_scored=False)
 
-    truth_u = union(truth)
+    opt_u = union(optional or [])
+    truth_u = subtract(truth, opt_u)
     # promo and error outcomes cut nothing
     pred_u = union(predicted) if outcome in ("cut", "review") else []
-    zones = _collar(truth_u, cfg.collar_s, duration_s)
+    zones = union(_collar(truth_u + opt_u, cfg.collar_s, duration_s) + opt_u)
+    blocks = _blocks(truth_u, opt_u)
 
     score = EpisodeScore(
         episode_id,
@@ -99,17 +121,25 @@ def score_episode(
         pred_ad_s=total(pred_u),
         content_cut_s=total(subtract(subtract(pred_u, truth_u), zones)),
         missed_ad_s=total(subtract(subtract(truth_u, pred_u), zones)),
-        truth_blocks=len(truth_u),
+        optional_s=total(opt_u),
+        optional_cut_s=total(intersect(pred_u, opt_u)),
+        truth_blocks=len(blocks),
     )
-    for ts, te in truth_u:
+    for ts, te in blocks:
         overlaps = [(min(te, pe) - max(ts, ps), (ps, pe)) for ps, pe in pred_u if pe > ts and ps < te]
-        covered = total(intersect([(ts, te)], pred_u))
-        if overlaps and covered >= BLOCK_COVER * (te - ts):
+        block_truth = intersect([(ts, te)], truth_u)
+        covered = total(intersect(block_truth, pred_u))
+        if overlaps and covered >= BLOCK_COVER * total(block_truth):
             score.found_blocks += 1
             _, (ps, pe) = max(overlaps)
-            score.boundary_errors.append((round(ps - ts, 2), round(pe - te, 2)))
+            start_err = -total(subtract([(ps, ts)], opt_u)) if ps < ts else ps - ts
+            end_err = total(subtract([(te, pe)], opt_u)) if pe > te else pe - te
+            score.boundary_errors.append((round(start_err, 2), round(end_err, 2)))
     for ps, pe in pred_u:
-        if total(intersect([(ps, pe)], truth_u)) < BLOCK_COVER * (pe - ps):
+        scored = subtract([(ps, pe)], opt_u)
+        if total(scored) < pe - ps and not subtract(scored, zones):
+            continue  # a cut of optional audio only: not an error of any kind
+        if total(intersect(scored, truth_u)) < BLOCK_COVER * total(scored):
             score.spurious_blocks += 1
     return score
 
@@ -123,6 +153,7 @@ class Aggregate:
     weighted_error_per_h: float
     ad_recall: float  # share of truth ad seconds removed
     content_cut_pct: float  # share of non-ad seconds removed
+    optional_cut: float  # share of optional seconds removed. Informational.
     blunders: int
     block_recall: float
     spurious_blocks: int
@@ -139,7 +170,8 @@ def aggregate(scores: list[EpisodeScore], cfg: ScoreConfig) -> Aggregate:
     content_cut = sum(s.content_cut_s for s in scored)
     missed = sum(s.missed_ad_s for s in scored)
     truth_ad = sum(s.truth_ad_s for s in scored)
-    content_total = sum(s.duration_s - s.truth_ad_s for s in scored)
+    content_total = sum(s.duration_s - s.truth_ad_s - s.optional_s for s in scored)
+    optional_total = sum(s.optional_s for s in scored)
     truth_blocks = sum(s.truth_blocks for s in scored)
     start_errs = [abs(e[0]) for s in scored for e in s.boundary_errors]
     end_errs = [abs(e[1]) for s in scored for e in s.boundary_errors]
@@ -151,6 +183,7 @@ def aggregate(scores: list[EpisodeScore], cfg: ScoreConfig) -> Aggregate:
         weighted_error_per_h=(missed + cfg.content_weight * content_cut) / hours,
         ad_recall=1 - missed / truth_ad if truth_ad else float("nan"),
         content_cut_pct=100 * content_cut / content_total if content_total else float("nan"),
+        optional_cut=sum(s.optional_cut_s for s in scored) / optional_total if optional_total else float("nan"),
         blunders=sum(1 for s in scored if s.blunder(cfg)),
         block_recall=sum(s.found_blocks for s in scored) / truth_blocks if truth_blocks else float("nan"),
         spurious_blocks=sum(s.spurious_blocks for s in scored),

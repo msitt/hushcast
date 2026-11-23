@@ -128,6 +128,9 @@ async def evals_labels(session: AsyncSession = Depends(get_session)) -> dict:
             "promo": label.promo,
             "ad_ranges": len(truth) if verified and not label.promo else None,
             "ad_s": sum(t["end"] - t["start"] for t in truth) if verified and not label.promo else None,
+            "optional_s": sum(o[1] - o[0] for o in labels.label_optional(label))
+            if verified and not label.promo
+            else None,
             "duration_s": label.duration_s if verified else ep.duration_s,
             "transcript_source": label.transcript_source,
             "matches_segments": labels.truth_matches(label, effective_truth(segments.get(ep.id, []))),

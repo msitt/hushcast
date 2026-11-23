@@ -9,8 +9,9 @@ import { Pager, usePaged } from "./Pager";
 function truthSummary(label: EvalSetLabel): string {
   if (label.verdict === "excluded") return label.note ?? "No reason given";
   if (label.promo) return "Promo-only, nothing to cut";
-  if (!label.ad_ranges) return `No ads in ${formatDuration(label.duration_s)}`;
-  return `${label.ad_ranges} ad range${label.ad_ranges > 1 ? "s" : ""}, ${formatDuration(label.ad_s)} of ${formatDuration(label.duration_s)}`;
+  const optional = label.optional_s ? `, ${formatDuration(label.optional_s)} optional` : "";
+  if (!label.ad_ranges) return `No ads in ${formatDuration(label.duration_s)}${optional}`;
+  return `${label.ad_ranges} ad range${label.ad_ranges > 1 ? "s" : ""}, ${formatDuration(label.ad_s)} of ${formatDuration(label.duration_s)}${optional}`;
 }
 
 export function DatasetTab() {

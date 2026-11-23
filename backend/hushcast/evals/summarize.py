@@ -46,6 +46,8 @@ def episode_scores(report: dict[str, Any], episode_ids: list[str], cfg: ScoreCon
                 episode_id=run["episode_id"],
                 duration_s=float(ep["duration_s"]),
                 truth=[(t[0], t[1]) for t in ep["truth"]],
+                # absent in reports and datasets made before optional ranges existed
+                optional=[(o[0], o[1]) for o in ep.get("optional") or []],
                 truth_promo=bool(ep["promo"]),
                 predicted=[(s[0], s[1]) for s in run["segments"]],
                 outcome=run["outcome"],
@@ -87,6 +89,7 @@ def summarize_report(report: dict[str, Any], episode_ids: list[str], cfg: ScoreC
 
 
 # (key, label, format). Lower is better unless the label says otherwise.
+# "(not scored)" rows are informational: neither direction is better.
 ROWS = [
     ("weighted_error_per_h", "weighted error, s/h", "{:.1f}"),
     ("content_cut_per_h", "content cut, s/h", "{:.1f}"),
@@ -94,6 +97,7 @@ ROWS = [
     ("blunders", "blunder episodes", "{:.1f}"),
     ("ad_recall", "ad recall (higher better)", "pct"),
     ("content_cut_pct", "content cut, % of content", "{:.2f}"),
+    ("optional_cut", "optional ranges cut (not scored)", "pct"),
     ("block_recall", "ad blocks found (higher better)", "pct"),
     ("spurious_blocks", "spurious blocks", "{:.1f}"),
     ("median_abs_start_err_s", "median |start error|, s", "{:.1f}"),
@@ -112,12 +116,13 @@ def metric_rows() -> list[dict[str, Any]]:
     out = []
     for key, label, fmt in ROWS:
         higher = label.endswith(" (higher better)")
+        neutral = label.endswith(" (not scored)")
         out.append({
             "key": key,
             "label": label.removesuffix(" (higher better)"),
             "kind": "pct" if fmt == "pct" else "num",
             "digits": 1 if fmt == "pct" else int(fmt[3]),
-            "better": "higher" if higher else "lower",
+            "better": "none" if neutral else "higher" if higher else "lower",
         })
     return out
 

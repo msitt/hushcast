@@ -35,6 +35,8 @@ const CATEGORY_CLASS: Record<string, string> = {
   self_promo: "chip-purple",
 };
 
+type MarkKind = "ad" | "not_ad" | "optional";
+
 const REPROCESS_OPTIONS = [
   { step: "detect", label: "Re-detect ads", hint: "keeps transcript" },
   { step: "transcribe", label: "Re-transcribe", hint: "new transcript, cues and ads" },
@@ -507,6 +509,7 @@ const CUE_LABELS: Record<string, string> = {
 function TranscriptViewer({
   episodeId,
   segments,
+  optionalSegments,
   hasCues,
   rebuilt,
   onMarkAd,
@@ -514,9 +517,10 @@ function TranscriptViewer({
 }: {
   episodeId: string;
   segments: SegmentOut[];
+  optionalSegments?: SegmentOut[];
   hasCues?: boolean;
   rebuilt?: boolean;
-  onMarkAd?: (startS: number, endS: number, notAd: boolean) => Promise<void>;
+  onMarkAd?: (startS: number, endS: number, kind: MarkKind) => Promise<void>;
   jumpRequest?: { t: number; nonce: number } | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -550,11 +554,11 @@ function TranscriptViewer({
     setAnchor(null);
     setSelEnd(null);
   };
-  const confirmMark = async (notAd: boolean) => {
+  const confirmMark = async (kind: MarkKind) => {
     if (!transcript || !selRange || !onMarkAd) return;
     setMarking(true);
     try {
-      await onMarkAd(transcript.segments[selRange[0]].start, transcript.segments[selRange[1]].end, notAd);
+      await onMarkAd(transcript.segments[selRange[0]].start, transcript.segments[selRange[1]].end, kind);
       clearSelection();
     } finally {
       setMarking(false);
@@ -638,6 +642,11 @@ function TranscriptViewer({
   // boundary shouldn't paint a whole line red.
   const inAd = (start: number, end: number) =>
     removed.some((s) => {
+      const overlap = Math.min(end, s.end_s) - Math.max(start, s.start_s);
+      return overlap > Math.min(0.5, (end - start) / 2);
+    });
+  const inOptional = (start: number, end: number) =>
+    (optionalSegments ?? []).some((s) => {
       const overlap = Math.min(end, s.end_s) - Math.max(start, s.start_s);
       return overlap > Math.min(0.5, (end - start) / 2);
     });
@@ -737,7 +746,7 @@ function TranscriptViewer({
                           <button
                             className="btn btn-small btn-primary"
                             disabled={marking}
-                            onClick={() => void confirmMark(false)}
+                            onClick={() => void confirmMark("ad")}
                           >
                             {marking ? "Marking…" : overlapping ? "Extend: mark as ad" : "Mark as ad"}
                           </button>
@@ -746,11 +755,19 @@ function TranscriptViewer({
                           <button
                             className={`btn btn-small${contained ? " btn-primary" : ""}`}
                             disabled={marking}
-                            onClick={() => void confirmMark(true)}
+                            onClick={() => void confirmMark("not_ad")}
                           >
                             {marking ? "Marking…" : "Mark as not-an-ad"}
                           </button>
                         )}
+                        <button
+                          className="btn btn-small"
+                          disabled={marking}
+                          title="For audio that is fine to cut or to keep, such as a network ident or a teaser. Evals ignore the range. Nothing is cut and it is not a correction."
+                          onClick={() => void confirmMark("optional")}
+                        >
+                          {marking ? "Marking…" : "Mark as optional"}
+                        </button>
                         <button className="btn btn-small" disabled={marking} onClick={clearSelection}>
                           Cancel
                         </button>
@@ -797,6 +814,8 @@ function TranscriptViewer({
                     const flags = hit ? removedWordFlags(seg.words) : null;
                     const runs = flags ? wordRuns(seg.words!, flags) : null;
                     const cls = `transcript-line${hit && !flags ? " transcript-ad" : ""}${
+                      inOptional(seg.start, seg.end) ? " transcript-optional" : ""
+                    }${
                       selected ? " transcript-selected" : ""
                     }${onMarkAd ? " transcript-clickable" : ""}${flashIdx === i ? " transcript-flash" : ""}`;
                     rows.push(
@@ -916,13 +935,21 @@ export function EpisodeDetailPage() {
     }
   };
 
-  const markRange = async (startS: number, endS: number, notAd: boolean) => {
+  const markRange = async (startS: number, endS: number, kind: MarkKind) => {
     try {
-      await api.addSegment(String(ep!.id), { start_s: startS, end_s: endS, not_ad: notAd });
+      await api.addSegment(String(ep!.id), {
+        start_s: startS,
+        end_s: endS,
+        not_ad: kind === "not_ad",
+        optional: kind === "optional",
+      });
+      const range = `${formatTimestamp(startS)}–${formatTimestamp(endS)}`;
       toastSuccess(
-        notAd
-          ? `Marked ${formatTimestamp(startS)}–${formatTimestamp(endS)} as not-an-ad`
-          : `Marked ${formatTimestamp(startS)}–${formatTimestamp(endS)} as a missed ad`
+        kind === "optional"
+          ? `Marked ${range} as optional, evals will ignore it`
+          : kind === "not_ad"
+            ? `Marked ${range} as not-an-ad`
+            : `Marked ${range} as a missed ad`
       );
       reload();
     } catch (err) {
@@ -944,6 +971,7 @@ export function EpisodeDetailPage() {
 
   const canProcess = ["skipped", "discovered", "expired"].includes(ep.status);
   const removedSegments = ep.segments.filter((s) => !s.kept);
+  const optionalSegments = ep.segments.filter((s) => s.source === "optional");
 
   return (
     <div className="page">
@@ -1107,7 +1135,11 @@ export function EpisodeDetailPage() {
                         {s.category}
                       </span>
                       {s.source === "manual" && <span className="chip chip-tiny chip-blue">manual</span>}
-                      {s.source === "promo" ? (
+                      {s.source === "optional" ? (
+                        <span className="chip chip-tiny chip-dim" title="Fine to cut or to keep. Evals ignore this range, and nothing is cut because of it.">
+                          ignored by evals
+                        </span>
+                      ) : s.source === "promo" ? (
                         <span className="chip chip-tiny chip-dim" title="The whole episode is promotional, so it was not cut. See Settings → Ad detection → Promo-only episodes.">
                           promo-only episode
                         </span>
@@ -1153,6 +1185,7 @@ export function EpisodeDetailPage() {
         <TranscriptViewer
           episodeId={String(ep.id)}
           segments={removedSegments}
+          optionalSegments={optionalSegments}
           hasCues={ep.has_cues}
           rebuilt={ep.transcript_source === "llm_prompt"}
           onMarkAd={markRange}

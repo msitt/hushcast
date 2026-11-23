@@ -107,6 +107,7 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
             "duration_s": label.duration_s or 0.0,
             "promo": label.promo,
             "truth": [[t["start"], t["end"], t["category"]] for t in json.loads(label.truth_json or "[]")],
+            "optional": labels.label_optional(label),
             "leak": labels.hints_leak(label, feed, global_hints),
         }
 
@@ -174,6 +175,7 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
                     episode_id=ep["episode_id"],
                     duration_s=float(ep["duration_s"]),
                     truth=[(t[0], t[1]) for t in ep["truth"]],
+                    optional=[(o[0], o[1]) for o in ep["optional"]],
                     truth_promo=bool(ep["promo"]),
                     predicted=[(seg[0], seg[1]) for seg in r["segments"]],
                     outcome=r["outcome"],

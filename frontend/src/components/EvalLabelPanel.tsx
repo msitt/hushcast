@@ -75,8 +75,15 @@ export function EvalLabelPanel({ ep, onChanged }: { ep: EpisodeDetailOut; onChan
   // newer correction means the segments were replaced (a re-detect), and
   // saving would overwrite checked truth with unchecked model output.
   const savedAt = label ? Date.parse(label.updated_at) : 0;
+  // Optional ranges carry no timestamp (they are not corrections), so one the
+  // saved label doesn't cover counts as the user still editing too.
+  const optional = label?.optional ?? [];
+  const optionalAdded = ep.segments.some(
+    (s) => s.source === "optional" && !optional.some((o) => o[0] <= s.start_s && o[1] >= s.end_s)
+  );
   const correctedSince =
-    stale && ep.segments.some((s) => s.corrected_at != null && Date.parse(s.corrected_at) > savedAt);
+    stale &&
+    (optionalAdded || ep.segments.some((s) => s.corrected_at != null && Date.parse(s.corrected_at) > savedAt));
   const truth = label?.truth ?? [];
   const truthTotal = truth.reduce((sum, t) => sum + (t.end - t.start), 0);
 
@@ -87,7 +94,9 @@ export function EvalLabelPanel({ ep, onChanged }: { ep: EpisodeDetailOut; onChan
         {!label && (
           <p className="field-hint">
             Once the segments above are right, verify them to use this episode as ground truth when comparing detection
-            models. Exclude it instead if it can't serve as truth, for example when the transcript is bad.
+            models. Audio that is fine to cut or to keep, such as a network ident, can be marked optional from the
+            transcript so models are not scored on it. Exclude the episode instead if it can't serve as truth, for
+            example when the transcript is bad.
           </p>
         )}
         {verified && (
@@ -105,6 +114,12 @@ export function EvalLabelPanel({ ep, onChanged }: { ep: EpisodeDetailOut; onChan
               <p className="field-hint">
                 Ground truth:{" "}
                 {truth.map((t) => `${formatTimestamp(t.start)}–${formatTimestamp(t.end)}`).join(" · ")}
+              </p>
+            )}
+            {!label.promo && optional.length > 0 && (
+              <p className="field-hint">
+                Optional, ignored when scoring:{" "}
+                {optional.map((o) => `${formatTimestamp(o[0])}–${formatTimestamp(o[1])}`).join(" · ")}
               </p>
             )}
             {label.transcript_source === "llm_prompt" && (

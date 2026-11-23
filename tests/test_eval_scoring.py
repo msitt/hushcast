@@ -7,10 +7,10 @@ from hushcast.evals.scoring import ScoreConfig, aggregate, score_episode
 CFG = ScoreConfig(collar_s=1.0, content_weight=3.0, blunder_s=5.0)
 
 
-def score(truth, predicted, *, outcome="cut", promo=False, duration=3600.0, cfg=CFG):
+def score(truth, predicted, *, outcome="cut", promo=False, duration=3600.0, cfg=CFG, optional=None):
     return score_episode(
         episode_id=1, duration_s=duration, truth=truth, truth_promo=promo,
-        predicted=predicted, outcome=outcome, cfg=cfg,
+        predicted=predicted, outcome=outcome, cfg=cfg, optional=optional,
     )
 
 
@@ -95,3 +95,52 @@ def test_aggregate_empty():
     agg = aggregate([], CFG)
     assert agg.episodes == 0
     assert math.isnan(agg.outcome_accuracy)
+
+
+def test_optional_range_scores_the_same_cut_or_kept():
+    truth, opt = [(100, 160)], [(85, 100)]  # a teaser right before the break
+    cut = score(truth, [(85, 160)], optional=opt)
+    kept = score(truth, [(100, 160)], optional=opt)
+    for s in (cut, kept):
+        assert s.content_cut_s == 0 and s.missed_ad_s == 0
+        assert s.found_blocks == 1 and s.spurious_blocks == 0
+        assert s.boundary_errors == [(0, 0)]
+    assert cut.optional_cut_s == 15 and kept.optional_cut_s == 0
+    assert cut.optional_s == kept.optional_s == 15
+
+
+def test_cutting_past_an_optional_range_still_counts():
+    s = score([(100, 160)], [(75, 160)], optional=[(85, 100)])
+    assert s.content_cut_s == pytest.approx(9)  # 75 to 85, minus the collar at the optional edge
+    assert s.boundary_errors == [(-10, 0)]
+
+
+def test_cut_of_only_optional_audio_is_not_spurious():
+    s = score([(100, 160)], [(100, 160), (2000, 2008)], optional=[(2000, 2008)])
+    assert s.spurious_blocks == 0 and s.content_cut_s == 0
+    assert s.truth_blocks == 1
+
+
+def test_optional_range_inside_a_break_keeps_it_one_block():
+    truth, opt = [(100, 120), (125, 160)], [(120, 125)]
+    whole = score(truth, [(100, 160)], optional=opt)
+    split = score(truth, [(100, 120), (125, 160)], optional=opt)
+    for s in (whole, split):
+        assert s.truth_blocks == 1 and s.found_blocks == 1
+        assert s.content_cut_s == 0 and s.missed_ad_s == 0
+    assert whole.boundary_errors == [(0, 0)]
+
+
+def test_optional_overrides_truth_it_overlaps():
+    s = score([(100, 160)], [(110, 160)], optional=[(100, 110)])
+    assert s.missed_ad_s == 0 and s.truth_ad_s == 50
+
+
+def test_aggregate_reports_optional_share_cut():
+    a = aggregate(
+        [score([(100, 160)], [(90, 160)], optional=[(90, 100)]), score([(100, 160)], [(100, 160)], optional=[(90, 100)])],
+        CFG,
+    )
+    assert a.optional_cut == pytest.approx(0.5)
+    assert a.weighted_error_per_h == 0
+    assert math.isnan(aggregate([score([(100, 160)], [(100, 160)])], CFG).optional_cut)

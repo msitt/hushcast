@@ -368,6 +368,7 @@ async def run_variant(
                 "duration_s": e["duration_s"],
                 "promo": e["promo"],
                 "truth": [[t["start"], t["end"], t["category"]] for t in e["truth"]],
+                "optional": e.get("optional") or [],
                 "transcript_source": e.get("transcript_source"),
                 # corrections on it may have been distilled into the hints this run used
                 "hints_leak": hints_mode == "current" and bool(e.get("hints_leak")),

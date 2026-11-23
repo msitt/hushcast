@@ -88,6 +88,8 @@ export interface EvalLabelOut {
   note: string | null;
   promo: boolean;
   truth: { start: number; end: number; category: string }[] | null;
+  /** Ranges evals ignore: cutting or keeping them is fine either way. */
+  optional: [number, number][];
   transcript_source: "file" | "llm_prompt" | null;
   matches_segments: boolean;
   created_at: string;
@@ -101,7 +103,7 @@ export interface SegmentOut {
   category: string;
   reason: string | null;
   kept: boolean;
-  source: "llm" | "manual" | "promo";
+  source: "llm" | "manual" | "promo" | "optional";
   corrected_at: string | null;
 }
 
@@ -116,6 +118,7 @@ export interface EvalSetLabel {
   promo: boolean;
   ad_ranges: number | null;
   ad_s: number | null;
+  optional_s: number | null;
   duration_s: number | null;
   transcript_source: "file" | "llm_prompt" | null;
   matches_segments: boolean;
@@ -209,7 +212,7 @@ export interface EvalMetricRow {
   label: string;
   kind: "pct" | "num";
   digits: number;
-  better: "higher" | "lower";
+  better: "higher" | "lower" | "none";
 }
 
 /** [start, end, category] */
@@ -259,6 +262,7 @@ export interface EvalResultEpisode {
   duration_s: number;
   promo: boolean;
   truth: EvalSegment[];
+  optional: [number, number][];
   hints_leak: boolean;
 }
 
@@ -629,7 +633,7 @@ export const api = {
     request<SegmentOut>(`/api/segments/${id}`, { method: "PATCH", body: JSON.stringify({ kept }) }),
   addSegment: (
     episodeId: number | string,
-    body: { start_s: number; end_s: number; category?: string; not_ad?: boolean }
+    body: { start_s: number; end_s: number; category?: string; not_ad?: boolean; optional?: boolean }
   ) => post<SegmentOut>(`/api/episodes/${episodeId}/segments`, body),
   deleteSegment: (id: number) => request<void>(`/api/segments/${id}`, { method: "DELETE" }),
   putEvalLabel: (episodeId: number | string, body: { verdict: EvalVerdict; note?: string | null }) =>

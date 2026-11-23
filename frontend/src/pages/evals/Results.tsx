@@ -58,7 +58,7 @@ function bestRunIds(row: EvalMetricRow, runs: EvalScoredRun[], pick: (r: EvalSco
     .map((r) => ({ id: r.run_id, v: pick(r)?.[row.key]?.mean ?? null }))
     .filter((x): x is { id: number; v: number } => x.v != null)
     .map((x) => ({ id: x.id, v: shown(x.v) }));
-  if (values.length < 2) return new Set();
+  if (values.length < 2 || row.better === "none") return new Set();
   const target = row.better === "higher" ? Math.max(...values.map((x) => x.v)) : Math.min(...values.map((x) => x.v));
   const winners = values.filter((x) => x.v === target);
   // everyone tied: nothing to point out
@@ -200,14 +200,15 @@ function Lane({ duration, parts }: { duration: number; parts: { iv: Iv; kind: st
   );
 }
 
-function repeatParts(truth: Iv[], r: EvalRepeatResult, collar: number) {
+function repeatParts(truth: Iv[], optional: Iv[], r: EvalRepeatResult, collar: number) {
   // promo and failed outcomes cut nothing, whatever segments were returned
   const cuts = r.outcome === "cut" || r.outcome === "review" ? union(r.segments.map((s: EvalSegment) => [s[0], s[1]] as Iv)) : [];
   // An error no longer than the collar scores as zero, so it isn't drawn either.
   const counts = (iv: Iv) => iv[1] - iv[0] > collar;
   return [
     ...subtract(cuts, subtract(cuts, truth)).map((iv) => ({ iv, kind: "correct", label: "Ad cut" })),
-    ...subtract(cuts, truth).filter(counts).map((iv) => ({ iv, kind: "content", label: "Content cut" })),
+    ...subtract(subtract(cuts, truth), optional).filter(counts).map((iv) => ({ iv, kind: "content", label: "Content cut" })),
+    ...subtract(cuts, subtract(cuts, optional)).map((iv) => ({ iv, kind: "optional", label: "Optional, cut (not scored)" })),
     ...subtract(truth, cuts).filter(counts).map((iv) => ({ iv, kind: "missed", label: "Ad missed" })),
   ];
 }
@@ -232,7 +233,8 @@ function EpisodeDialog({
   collar: number;
   onClose: () => void;
 }) {
-  const truth = union(episode.truth.map((t) => [t[0], t[1]] as Iv));
+  const optional = union(episode.optional.map((o) => [o[0], o[1]] as Iv));
+  const truth = subtract(union(episode.truth.map((t) => [t[0], t[1]] as Iv)), optional);
   const duration = episode.duration_s || 1;
   return (
     <Modal title={episode.episode_title} onClose={onClose} wide>
@@ -246,10 +248,17 @@ function EpisodeDialog({
         <span><i className="eval-seg-correct" /> ad cut</span>
         <span><i className="eval-seg-content" /> content cut</span>
         <span><i className="eval-seg-missed" /> ad missed</span>
+        {optional.length > 0 && <span><i className="eval-seg-optional" /> optional, not scored</span>}
       </div>
       <div className="eval-timeline">
         <div className="eval-lane-label">Truth</div>
-        <Lane duration={duration} parts={truth.map((iv) => ({ iv, kind: "truth", label: "Ad" }))} />
+        <Lane
+          duration={duration}
+          parts={[
+            ...truth.map((iv) => ({ iv, kind: "truth", label: "Ad" })),
+            ...optional.map((iv) => ({ iv, kind: "optional", label: "Optional (not scored)" })),
+          ]}
+        />
         <div className="eval-lane-note">
           {episode.promo ? "nothing should be cut" : truth.length === 0 ? "no ads" : formatDuration(truth.reduce((n, t) => n + t[1] - t[0], 0))}
         </div>
@@ -261,7 +270,7 @@ function EpisodeDialog({
               {(cell?.repeats ?? []).map((r) => (
                 <div className="eval-lane-row" key={r.repeat}>
                   <div className="eval-lane-label">Run {r.repeat + 1}</div>
-                  <Lane duration={duration} parts={episode.promo ? [] : repeatParts(truth, r, collar)} />
+                  <Lane duration={duration} parts={episode.promo ? [] : repeatParts(truth, optional, r, collar)} />
                   <div className="eval-lane-note">{repeatSummary(r, episode.promo)}</div>
                 </div>
               ))}

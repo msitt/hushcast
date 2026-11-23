@@ -41,5 +41,26 @@ def test_promo_episode():
     assert t.spans == [TruthSpan(0, 290, "ad")]
 
 
+def optional(start, end):
+    return row(start, end, kept=True, source="optional", category="optional")
+
+
+def test_optional_range_is_not_truth():
+    t = effective_truth([row(10, 40), optional(200, 210), optional(205, 215)])
+    assert t.spans == [TruthSpan(10, 40, "ad")]
+    assert t.optional == [(200, 215)]
+
+
+def test_optional_range_takes_its_part_out_of_a_detected_block():
+    t = effective_truth([row(10, 60), optional(5, 20), optional(30, 35)])
+    assert t.spans == [TruthSpan(20, 30, "ad"), TruthSpan(35, 60, "ad")]
+    assert t.optional == [(5, 20), (30, 35)]
+
+
+def test_optional_range_also_overrides_a_manual_ad():
+    t = effective_truth([row(100, 130, source="manual"), optional(100, 110)])
+    assert t.spans == [TruthSpan(110, 130, "ad")]
+
+
 def test_no_segments_means_no_ads():
     assert effective_truth([]).spans == []
