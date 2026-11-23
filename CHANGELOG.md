@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.6.0] - 2026-11-23
+
+### Added
+
+- Evals: mark audio that is fine to cut or to keep (network idents, bumpers, teasers) as optional from an episode's transcript. Models are not scored on optional ranges, and Results shows how much of them each model cut.
+
 ## [1.5.0] - 2026-11-23
 
 ### Added
