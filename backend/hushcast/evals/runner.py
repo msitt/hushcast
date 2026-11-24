@@ -29,7 +29,7 @@ import httpx
 from .. import settings_store
 from ..cues.base import cues_from_json
 from ..detection import llm as llm_mod
-from ..detection.finalize import finalize
+from ..detection.finalize import detect_and_finalize
 from ..errors import RateLimitError
 from ..transcription.base import Transcript
 
@@ -146,6 +146,8 @@ class CachingClient(EvalClient):
         super().__init__(settings, stats=stats)
         self.cache_dir = cache_dir
         self.repeat = repeat
+        # a re-detection sends the same messages, so it needs its own cache entry
+        self.attempt = 0
 
     def _path(self, messages: list[dict[str, str]], schema: dict[str, Any] | None) -> Path:
         payload = {
@@ -158,6 +160,8 @@ class CachingClient(EvalClient):
             "messages": messages,
             "repeat": self.repeat,
         }
+        if self.attempt:  # left out for the first attempt so existing caches stay valid
+            payload["attempt"] = self.attempt
         key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         return self.cache_dir / f"{key}.json"
 
@@ -188,8 +192,9 @@ async def run_episode(
     make_client: Callable[[CallStats], EvalClient],
     pricing: Pricing | None = None,
 ) -> dict[str, Any]:
-    """Detect one dataset episode once. A failure is a result (outcome
-    "error"), not an exception."""
+    """One repeat of one dataset episode, re-detected once when the pipeline
+    would (see detect_and_finalize). A failure is a result (outcome "error"),
+    not an exception."""
     stats = CallStats()
     client = make_client(stats)
     transcript = Transcript.from_json_dict(episode["transcript"])
@@ -198,8 +203,14 @@ async def run_episode(
     duration = float(episode["duration_s"] or transcript.duration)
     run: dict[str, Any] = {"episode_id": episode["episode_id"], "repeat": repeat}
     started = time.monotonic()
-    try:
-        result = await llm_mod.detect_ads(
+    attempts = 0
+
+    async def detect(attempt: int) -> llm_mod.DetectionResult:
+        nonlocal attempts
+        attempts = attempt + 1
+        if isinstance(client, CachingClient):
+            client.attempt = attempt
+        return await llm_mod.detect_ads(
             client,
             transcript,
             system_prompt=settings["detection_prompt"],
@@ -212,7 +223,11 @@ async def run_episode(
             cues=prompt_cues,
             cue_min_prompt_duration_s=float(settings["cue_min_prompt_duration_s"]),
         )
-        done = finalize(result, transcript=transcript, cues=cues, duration=duration, settings=settings)
+
+    try:
+        _, done = await detect_and_finalize(
+            detect, transcript=transcript, cues=cues, duration=duration, settings=settings
+        )
         run.update(
             outcome=done.outcome,
             segments=[[round(s.start, 2), round(s.end, 2), s.category] for s in done.segments],
@@ -221,6 +236,7 @@ async def run_episode(
     except Exception as exc:  # a failed episode is a result, not a crash
         run.update(outcome="error", segments=[], error=f"{type(exc).__name__}: {exc}"[:1000])
     run.update(
+        attempts=max(attempts, 1),
         calls=stats.calls,
         cached_calls=stats.cached_calls,
         retries=stats.retries,
@@ -389,6 +405,7 @@ REPORTED_SETTINGS = {
     "snap_tolerance_s",
     "min_duration_s",
     "merge_gap_s",
+    "max_segment_s",
     "refine_window_s",
     "refine_min_gap_s",
     "cue_prompt_annotations",

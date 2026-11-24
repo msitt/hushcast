@@ -78,6 +78,10 @@ def summarize_report(report: dict[str, Any], episode_ids: list[str], cfg: ScoreC
     calls = sum(r["calls"] for r in runs)
     metrics["cost_per_episode_usd"] = _spread([statistics.fmean(costs)] if cost_known else [])
     metrics["llm_s_per_episode"] = _spread([statistics.fmean([r["llm_elapsed_s"] for r in runs])] if runs else [])
+    # older CLI reports have no attempts: those ran before re-detection existed
+    metrics["redetect_pct"] = _spread(
+        [100 * sum(1 for r in runs if (r.get("attempts") or 1) > 1) / len(runs)] if runs else []
+    )
     metrics["malformed_retry_pct"] = _spread([100 * sum(r["retries"] for r in runs) / calls] if calls else [])
     return {
         "name": report["variant"]["name"],
@@ -104,6 +108,7 @@ ROWS = [
     ("median_abs_end_err_s", "median |end error|, s", "{:.1f}"),
     ("outcome_accuracy", "outcome correct (higher better)", "pct"),
     ("reviews", "circuit-breaker reviews", "{:.1f}"),
+    ("redetect_pct", "re-detected (overlong segment), % of detections", "{:.1f}"),
     ("errors", "failed episodes", "{:.1f}"),
     ("malformed_retry_pct", "malformed-output retries, % of calls", "{:.1f}"),
     ("cost_per_episode_usd", "cost per episode, USD", "{:.4f}"),

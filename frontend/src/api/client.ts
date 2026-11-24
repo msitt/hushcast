@@ -221,6 +221,8 @@ export type EvalSegment = [number, number, string];
 export interface EvalRepeatResult {
   repeat: number;
   outcome: "cut" | "promo" | "review" | "error";
+  /** detections it took: 2 when the first had an overlong segment */
+  attempts: number;
   outcome_ok: boolean;
   segments: EvalSegment[];
   error: string | null;
@@ -480,6 +482,7 @@ export interface Settings {
   min_duration_s: number;
   promo_episode_action: "skip" | "passthrough";
   merge_gap_s: number;
+  max_segment_s: number;
   snap_tolerance_s: number;
   refine_window_s: number;
   refine_min_gap_s: number;

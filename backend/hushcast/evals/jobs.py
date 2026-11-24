@@ -261,6 +261,7 @@ class EvalRunManager:
                             outcome=result["outcome"],
                             segments_json=json.dumps(result["segments"]),
                             error=result["error"],
+                            attempts=result["attempts"],
                             calls=result["calls"],
                             retries=result["retries"],
                             prompt_tokens=result["prompt_tokens"],

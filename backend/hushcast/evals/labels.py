@@ -32,6 +32,7 @@ DETECTION_SETTINGS = (
     "snap_tolerance_s",
     "min_duration_s",
     "merge_gap_s",
+    "max_segment_s",
     "refine_window_s",
     "refine_min_gap_s",
     "cue_prompt_annotations",

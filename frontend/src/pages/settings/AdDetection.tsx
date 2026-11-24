@@ -15,6 +15,7 @@ const KEYS = [
   "min_duration_s",
   "promo_episode_action",
   "merge_gap_s",
+  "max_segment_s",
   "snap_tolerance_s",
   "refine_window_s",
   "refine_min_gap_s",
@@ -92,6 +93,8 @@ export function AdDetectionPage() {
         <div className="form-row">
           <NumField draft={draft} set={set} k="min_duration_s" label="Min segment duration (s)" step="0.5"
             hint="Segments shorter than this are ignored. Filters one-line false positives." />
+          <NumField draft={draft} set={set} k="max_segment_s" label="Max segment duration (s)" step="10"
+            hint="A single segment longer than this usually means two ad breaks were joined, cutting the show in between. Detection runs once more, and if the new result has one too, the episode is held for review. 0 turns this off." />
         </div>
         <div className="form-row">
           <NumField draft={draft} set={set} k="merge_gap_s" label="Merge gap (s)" step="0.5"

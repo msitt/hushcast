@@ -311,6 +311,8 @@ class EvalResult(Base):
     outcome: Mapped[str] = mapped_column(String(10))  # cut | promo | review | error
     segments_json: Mapped[str] = mapped_column(Text, default="[]")  # [[start, end, category]]
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # detections it took: 2 when the first tripped a retryable check (overlong segment)
+    attempts: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     calls: Mapped[int] = mapped_column(Integer, default=0)
     retries: Mapped[int] = mapped_column(Integer, default=0)
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)

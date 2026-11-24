@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from ...db import session_factory
 from ...detection import llm as llm_mod
 from ...detection import segments as seg
-from ...detection.finalize import finalize
+from ...detection.finalize import detect_and_finalize
 from ...models import LlmCall, Segment
 from .. import state
 from ..context import EpisodeContext
@@ -59,36 +59,41 @@ async def run(ctx: EpisodeContext) -> None:
             await session.commit()
 
     client = llm_mod.LLMClient(ctx.settings)
-    started = time.monotonic()
-    result = await llm_mod.detect_ads(
-        client,
-        transcript,
-        system_prompt=ctx.settings["detection_prompt"],
-        podcast_title=ctx.podcast_title,
-        episode_title=ctx.episode_title,
-        detection_hints=ctx.detection_hints,
-        learned_hints=ctx.learned_hints,
-        global_learned_hints=ctx.settings["global_learned_hints"] or None,
-        context_budget_tokens=int(ctx.settings["llm_context_budget_tokens"]),
-        cues=prompt_cues,
-        cue_min_prompt_duration_s=float(ctx.settings["cue_min_prompt_duration_s"]),
-        log_lines=ctx.log,
-        recorder=record_call,
-    )
-    elapsed = time.monotonic() - started
-    raw = result.segments
+
+    async def detect(attempt: int) -> llm_mod.DetectionResult:
+        return await llm_mod.detect_ads(
+            client,
+            transcript,
+            system_prompt=ctx.settings["detection_prompt"],
+            podcast_title=ctx.podcast_title,
+            episode_title=ctx.episode_title,
+            detection_hints=ctx.detection_hints,
+            learned_hints=ctx.learned_hints,
+            global_learned_hints=ctx.settings["global_learned_hints"] or None,
+            context_budget_tokens=int(ctx.settings["llm_context_budget_tokens"]),
+            cues=prompt_cues,
+            cue_min_prompt_duration_s=float(ctx.settings["cue_min_prompt_duration_s"]),
+            log_lines=ctx.log,
+            recorder=record_call,
+        )
 
     # Post-process against the real audio duration (ffprobe, via download), not
     # transcript.duration: the latter ends at the last word, so when speech runs
     # to the end of the episode the tail gap refinement needs at the edge would
     # never exist and an outro ad's cut gets dragged inward (word_gaps docstring).
     duration = ctx.duration_s or transcript.duration
-    done = finalize(result, transcript=transcript, cues=cues, duration=duration, settings=ctx.settings)
+    started = time.monotonic()
+    result, done = await detect_and_finalize(
+        detect, transcript=transcript, cues=cues, duration=duration, settings=ctx.settings, log_lines=ctx.log
+    )
+    elapsed = time.monotonic() - started
+    raw = result.segments
     final = done.segments
 
     removed = sum(s.duration for s in final)
     pct = done.removed_pct
     ctx.metrics["detect_seconds"] = round(elapsed, 1)
+    ctx.metrics["detect_attempts"] = done.attempts
     ctx.metrics["segments_raw"] = len(raw)
     ctx.metrics["segments_final"] = len(final)
     ctx.metrics["ad_seconds_detected"] = round(removed, 1)
@@ -120,8 +125,8 @@ async def run(ctx: EpisodeContext) -> None:
 
     if done.outcome == "review":
         # Keep the segments so a human can trim them (mark not-an-ad, delete)
-        # and then cut, or re-run detection. Retrying blindly only rewards
-        # under-detection.
+        # and then cut, or re-run detection. No retry beyond the single one
+        # detect_and_finalize allows: retrying blindly only rewards under-detection.
         await _store_segments(ctx.episode_id, final)
         raise state.StopPipeline(state.REVIEW, done.rejection or "", job_error=done.rejection)
 

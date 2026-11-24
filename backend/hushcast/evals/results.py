@@ -151,6 +151,7 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
                     "outcome": r.outcome,
                     "segments": json.loads(r.segments_json or "[]"),
                     "error": r.error,
+                    "attempts": r.attempts,
                     "calls": r.calls,
                     "retries": r.retries,
                     "llm_elapsed_s": r.llm_elapsed_s,
@@ -184,6 +185,7 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
                 repeats.append({
                     "repeat": r["repeat"],
                     "outcome": r["outcome"],
+                    "attempts": r["attempts"],
                     "outcome_ok": s.outcome_ok,
                     "segments": r["segments"],
                     "error": r["error"],

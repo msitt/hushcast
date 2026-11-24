@@ -24,7 +24,15 @@ class AdSegment:
 
 
 class DetectionRejected(Exception):
-    """Detection result failed sanity checks, do not cut with it."""
+    """Detection result failed sanity checks, do not cut with it.
+
+    retryable: the failure looks like a one-off slip that a fresh detection
+    usually doesn't repeat, so one more attempt is worth it before a review.
+    """
+
+    def __init__(self, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 # Circuit-breaker ceiling: refuse to cut when detection would remove more than
@@ -208,6 +216,30 @@ def check_removed_fraction(segments: list[AdSegment], duration: float, max_remov
         raise DetectionRejected(
             f"detected segments would remove {pct:.1f}% of the episode "
             f"(limit {max_removed_pct:.0f}%), refusing to cut without a review"
+        )
+
+
+def _clock(seconds: float) -> str:
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def check_segment_length(segments: list[AdSegment], max_segment_s: float) -> None:
+    """Refuse a single segment longer than any real ad break.
+
+    The typical cause is the LLM pairing the start of one break with the end of
+    a later one (often the same advertiser in both), which cuts all the show in
+    between. 0 turns the check off.
+    """
+    if max_segment_s <= 0:
+        return
+    longest = max(segments, key=lambda s: s.duration, default=None)
+    if longest is not None and longest.duration > max_segment_s:
+        raise DetectionRejected(
+            f"segment {_clock(longest.start)}-{_clock(longest.end)} is {longest.duration / 60:.1f} min "
+            f"(limit {max_segment_s / 60:.1f} min), longer than any ad break should be",
+            retryable=True,
         )
 
 

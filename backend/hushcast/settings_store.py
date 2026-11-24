@@ -117,6 +117,9 @@ DEFAULTS: dict[str, Any] = {
     # skip = leave it out of the served feed, passthrough = serve it untouched
     "promo_episode_action": "skip",
     "merge_gap_s": 7.0,
+    # a single segment longer than this goes to review after one re-detection (0 = off).
+    # Real breaks run a few minutes. Longer means the LLM joined two breaks into one.
+    "max_segment_s": 360.0,
     "snap_tolerance_s": 15.0,
     # word-level boundary refinement
     "refine_window_s": 2.0,  # max distance a cut boundary may move

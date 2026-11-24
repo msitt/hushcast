@@ -178,6 +178,7 @@ function repeatSummary(r: EvalRepeatResult, promo: boolean): string {
   if (r.outcome === "promo") return "called it promo-only and cut nothing";
   const bits = [`${formatDuration(r.content_cut_s)} content cut`, `${formatDuration(r.missed_ad_s)} ad missed`];
   if (r.outcome === "review") bits.push("held for review");
+  if (r.attempts > 1) bits.push("re-detected after an overlong segment");
   return bits.join(" · ");
 }
 

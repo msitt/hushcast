@@ -53,6 +53,7 @@ The **Results** tab picks one run per model by default, and only runs that cover
 | start / end error | how far found blocks' edges land from the truth. A negative start or positive end cuts content. |
 | optional ranges cut | share of the optional audio a model removed. Shown for information: it is not part of any other number, and neither direction is better. |
 | outcome correct | cut vs promo-only. A circuit-breaker review counts as wrong. |
+| re-detected | share of detections that had a segment over the max segment duration and were run again, as the pipeline does. The retry's cost is included, and a model that needs it often is less reliable even when its scores look fine. |
 
 Scoring controls re-score everything in place, since runs store predictions and not scores:
 
@@ -66,7 +67,7 @@ Below the table, the cost versus error chart shows which models are worth their 
 
 Results follow the labels. Correcting a label's ground truth re-scores every run. If an episode's transcript copy changes, earlier results for it are left out until the model is run again. Runs made under different hints or detection settings are flagged, because differences between them may not come from the models.
 
-Promo-only episodes are scored on the outcome only. A failed detection (the model never returned usable JSON) counts as cutting nothing. Every run is finalized exactly like the pipeline does it: snapping, merging, cue bridging, refinement, the promo check and the circuit breaker.
+Promo-only episodes are scored on the outcome only. A failed detection (the model never returned usable JSON) counts as cutting nothing. Every run is finalized exactly like the pipeline does it: snapping, merging, cue bridging, refinement, the promo check, the circuit breakers, and the one re-detection after an overlong segment.
 
 ## Hints and leakage
 

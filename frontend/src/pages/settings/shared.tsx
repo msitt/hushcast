@@ -24,6 +24,7 @@ export const NUMBER_KEYS: (keyof Settings)[] = [
   "keep_originals_days",
   "min_duration_s",
   "merge_gap_s",
+  "max_segment_s",
   "snap_tolerance_s",
   "refine_window_s",
   "refine_min_gap_s",
