@@ -203,6 +203,11 @@ class LLMClient:
             raise RuntimeError(f"unexpected LLM response shape: {payload}") from exc
         usage = payload.get("usage") or {}
         finish_reason = choice.get("finish_reason")
+        if content is None:
+            # A reasoning model that spends the whole completion budget thinking
+            # answers with null content. Callers treat it as an empty reply.
+            events.append(f"reply had no content (finish_reason={finish_reason})")
+            content = ""
         log.info(
             "LLM chat: model=%s in=%d chars out=%d chars tokens=%s/%s finish_reason=%s elapsed=%.1fs",
             self.model,
@@ -409,6 +414,12 @@ async def _detect_chunk(
     for attempt in range(1 + MALFORMED_RETRIES):
         result = await llm.chat(attempt_messages, schema=SEGMENTS_SCHEMA, recorder=recorder)
         try:
+            if not result.content.strip():
+                raise ValueError(
+                    "the reply was empty: reasoning used up the completion token limit (llm_max_tokens)"
+                    if result.finish_reason == "length"
+                    else "the reply was empty"
+                )
             parsed = parse_detection(result.content)
         except ValueError as exc:
             error = str(exc)

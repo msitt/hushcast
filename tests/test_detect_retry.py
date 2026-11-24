@@ -1,6 +1,13 @@
+import httpx
 import pytest
 
-from hushcast.detection.llm import MALFORMED_RETRIES, ChatResult, _detect_chunk
+from hushcast import settings_store
+from hushcast.detection.llm import (
+    MALFORMED_RETRIES,
+    ChatResult,
+    LLMClient,
+    _detect_chunk,
+)
 
 GOOD = '{"segments": [{"start": 0.0, "end": 29.8, "category": "sponsor", "reason": "ok"}]}'
 PROSE = "We need to identify ad segments. Let's go through the transcript lines."
@@ -72,3 +79,35 @@ async def test_parsed_but_truncated_without_length_flag_is_accepted():
     llm, segments = await run([ChatResult(TRUNCATED, None)])
     assert len(llm.calls) == 1
     assert len(segments) == 1
+
+
+async def test_empty_reply_retried():
+    # a reasoning model that thinks until the token cap answers with nothing
+    log: list[str] = []
+    llm, segments = await run([ChatResult("", "length"), ChatResult(GOOD, "stop")], log)
+    assert len(llm.calls) == 2
+    assert len(segments) == 1
+    assert any("reasoning used up the completion token limit" in line for line in log)
+
+
+async def test_null_content_becomes_empty_reply(monkeypatch):
+    payload = {
+        "choices": [{"finish_reason": "length", "message": {"role": "assistant", "content": None}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 16384},
+    }
+
+    async def fake_post(self, url, **kwargs):
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    recorded: list[dict] = []
+
+    async def recorder(call):
+        recorded.append(call)
+
+    settings = {**settings_store.DEFAULTS, "llm_base_url": "http://llm.invalid/v1", "llm_model": "m"}
+    result = await LLMClient(settings).chat(MESSAGES, recorder=recorder)
+    assert result.content == "" and result.finish_reason == "length"
+    # the call is still recorded, so it shows up in the episode's LLM history
+    assert recorded and recorded[0]["response"] == ""
+    assert any("no content" in e for e in recorded[0]["events"])

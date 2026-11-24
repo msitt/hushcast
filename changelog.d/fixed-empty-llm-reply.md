@@ -1,0 +1,1 @@
+- Detection no longer fails when a reasoning model spends its whole token limit thinking and returns an empty reply. The reply is retried like other malformed output, and the episode's LLM history says why.
