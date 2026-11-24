@@ -200,6 +200,7 @@ class TranscriptionCall(Base):
     audio_s: Mapped[float | None] = mapped_column(Float, nullable=True)
     upload_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     elapsed_s: Mapped[float] = mapped_column(Float, default=0.0)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = unknown, 0 = free
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 

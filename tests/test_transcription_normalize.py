@@ -325,3 +325,11 @@ def test_speakers_on_words_only_start_new_lines():
         ("SPEAKER_00", "Who is this?"),
         ("SPEAKER_01", "It is me."),
     ]
+
+
+def test_extra_params_form_values():
+    form = OpenAICompatTranscriber._form_value
+    assert form(5) == "5"
+    assert form(["a", "b"]) == ["a", "b"]  # a repeated field
+    # an object goes out as JSON, not as a Python repr
+    assert form({"options": {"deepgram": {"smart_format": True}}}) == '{"options": {"deepgram": {"smart_format": true}}}'

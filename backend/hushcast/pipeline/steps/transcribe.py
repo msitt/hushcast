@@ -57,6 +57,7 @@ def _record_raw_call(
             "elapsed_s": round(elapsed_s, 1),
             "audio_s": audio_s,
             "upload_bytes": upload_bytes,
+            "cost_usd": getattr(transcriber, "last_cost_usd", None),
             "url": str(ctx.settings.get("transcription_base_url") or ""),
             "model": str(ctx.settings.get("transcription_model") or ""),
             "payload": payload,
@@ -220,6 +221,7 @@ async def run(ctx: EpisodeContext) -> None:
                         audio_s=call["audio_s"],
                         upload_bytes=call["upload_bytes"],
                         elapsed_s=call["elapsed_s"],
+                        cost_usd=call["cost_usd"],
                     )
                 )
             await session.commit()

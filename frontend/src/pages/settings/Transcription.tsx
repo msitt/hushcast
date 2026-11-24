@@ -64,8 +64,8 @@ export function TranscriptionPage() {
             onChange={(e) => set("transcription_extra_params", e.target.value)}
           />
           <span className="field-hint">
-            Merged into the transcription request as-is, for provider-specific options like VAD chunk size, batch
-            size, or hotwords.
+            Merged into the transcription request, for provider-specific options like VAD chunk size, batch size,
+            or hotwords. A nested object is sent as JSON.
           </span>
         </label>
         {jsonError && <div className="inline-error">{jsonError}</div>}

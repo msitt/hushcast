@@ -53,6 +53,24 @@ You need two OpenAI-compatible endpoints, entered in **Settings** on first run:
 </details>
 
 <details>
+<summary><b>Example: everything at OpenRouter</b> (transcription and ad detection through one account)</summary>
+
+| Setting | Value |
+|---|---|
+| Transcription base URL | `https://openrouter.ai/api/v1` |
+| Transcription model | `deepgram/nova-3` |
+| Word timestamps | on |
+| LLM base URL | `https://openrouter.ai/api/v1` |
+| LLM model | any chat model, e.g. `z-ai/glm-5.3-flash` |
+
+Notes on other transcription models there:
+
+- `deepgram/nova-3` spells out numbers by default. To get digits, set extra params to `{"provider": {"options": {"deepgram": {"smart_format": true}}}}`.
+- `elevenlabs/scribe-v2` needs word timestamps on, because it returns the whole file as one block of text. Set Max part length to `30`, since OpenRouter gives up on a request after about a minute. It reports where music plays, which Hushcast uses as audio cues when those are on.
+
+</details>
+
+<details>
 <summary><b>Example: fully local</b> (no data leaves your network, needs a GPU for reasonable speed)</summary>
 
 | Setting | Value |

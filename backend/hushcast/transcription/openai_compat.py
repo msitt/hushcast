@@ -6,12 +6,14 @@ Diarization/speaker fields are whisperx extensions, absence is tolerated.
 """
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from ..detection.llm import reported_cost
 from ..errors import RateLimitError, parse_retry_after
 from .base import (
     ProviderCapabilities,
@@ -155,6 +157,8 @@ class OpenAICompatTranscriber(TranscriptionProvider):
         # raw provider response of the most recent transcribe() call, kept for
         # the per-call debug log written by the transcribe step
         self.last_raw_payload: dict[str, Any] | None = None
+        # what the provider said the most recent call cost in USD, None when it did not say
+        self.last_cost_usd: float | None = None
 
     @property
     def capabilities(self) -> ProviderCapabilities:
@@ -178,7 +182,7 @@ class OpenAICompatTranscriber(TranscriptionProvider):
         if self.diarize:
             data["diarize"] = "true"
         for k, v in self.extra_params.items():
-            data[k] = v if isinstance(v, list) else str(v)
+            data[k] = self._form_value(v)
 
         mime = MIME_BY_EXT.get(audio_path.suffix.lower(), "application/octet-stream")
         log.info(
@@ -206,7 +210,21 @@ class OpenAICompatTranscriber(TranscriptionProvider):
             raise RuntimeError(f"transcription failed: HTTP {resp.status_code}: {resp.text[:500]}")
         payload = resp.json()
         self.last_raw_payload = payload
+        self.last_cost_usd = reported_cost(payload, resp.headers)
         return self._normalize(payload)
+
+    @staticmethod
+    def _form_value(value: Any) -> Any:
+        """One extra param as a multipart form value.
+
+        A list becomes a repeated field. An object goes out as JSON text, which
+        is how OpenRouter takes `provider` options in a form upload.
+        """
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict):
+            return json.dumps(value)
+        return str(value)
 
     @staticmethod
     def _normalize(payload: dict[str, Any]) -> Transcript:

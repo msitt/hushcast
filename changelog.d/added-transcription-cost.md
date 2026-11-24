@@ -1,0 +1,2 @@
+- The System page shows what transcription cost, for providers that report it (such as OpenRouter).
+- Transcription extra params can hold nested options, such as OpenRouter's per-provider settings.

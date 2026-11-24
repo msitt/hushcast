@@ -62,7 +62,7 @@ def make_stub_app(audio_path) -> FastAPI:
             {"id": i, "start": i * 5.0, "end": (i + 1) * 5.0, "text": f"spoken line {i}"}
             for i in range(12)
         ]
-        return {"language": "en", "duration": 60.0, "segments": segments}
+        return {"language": "en", "duration": 60.0, "segments": segments, "usage": {"cost": 0.0125}}
 
     # "ads" = one 10s sponsor spot, "overcut" = flags most of the episode without
     # the promo flag (a misfire), "promo" = flags it all and says the episode is promo-only
@@ -179,6 +179,11 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         # 10s sponsor cut from 60s -> ~50s output
         assert episode["ad_seconds_removed"] == pytest.approx(10.0, abs=1.0)
         assert episode["processed_duration_s"] == pytest.approx(50.0, abs=2.0)
+
+        # the cost the transcription provider reported shows up in the usage stats
+        usage = client.get("/api/system/stats").json()["transcription"]
+        assert usage["total"]["cost_usd"] == pytest.approx(0.0125 * usage["total"]["calls"])
+        assert usage["by_model"][0]["cost_usd"] == pytest.approx(usage["total"]["cost_usd"])
 
         detail = client.get(f"/api/episodes/{episode['id']}").json()
         assert len(detail["segments"]) == 1

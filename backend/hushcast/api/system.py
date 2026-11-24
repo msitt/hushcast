@@ -352,11 +352,12 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 func.count(),
                 func.coalesce(func.sum(TranscriptionCall.audio_s), 0.0),
                 func.coalesce(func.sum(TranscriptionCall.elapsed_s), 0.0),
+                func.sum(TranscriptionCall.cost_usd),  # None when no call reported a cost
             ).group_by(TranscriptionCall.url, TranscriptionCall.model)
         )
     ).all()
     tr_by_model: dict[tuple[str, str], dict] = {}
-    for url, model, calls, audio_s, elapsed in transcription_rows:
+    for url, model, calls, audio_s, elapsed, cost in transcription_rows:
         key = (provider_host(url), model)
         entry = tr_by_model.setdefault(
             key,
@@ -366,11 +367,14 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 "calls": 0,
                 "audio_s": 0.0,
                 "elapsed_s": 0.0,
+                "cost_usd": None,  # None = unknown, 0 = free
             },
         )
         entry["calls"] += calls
         entry["audio_s"] += audio_s
         entry["elapsed_s"] += elapsed
+        if cost is not None:
+            entry["cost_usd"] = (entry["cost_usd"] or 0.0) + cost
     transcription_models = sorted(
         tr_by_model.values(), key=lambda m: m["audio_s"], reverse=True
     )
@@ -398,6 +402,11 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 "calls": sum(m["calls"] for m in transcription_models),
                 "audio_s": sum(m["audio_s"] for m in transcription_models),
                 "elapsed_s": sum(m["elapsed_s"] for m in transcription_models),
+                "cost_usd": (
+                    sum(m["cost_usd"] for m in transcription_models if m["cost_usd"] is not None)
+                    if any(m["cost_usd"] is not None for m in transcription_models)
+                    else None
+                ),
             },
             "by_model": transcription_models,
         },

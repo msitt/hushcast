@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type SystemAlert } from "../api/client";
-import { formatBytes, formatDuration, formatElapsed, formatTokens } from "../format";
+import { formatBytes, formatCost, formatDuration, formatElapsed, formatTokens } from "../format";
 import { useAsyncData } from "../hooks";
 import { useSystemStatus } from "../components/SystemStatusContext";
 import { useToasts } from "../components/Toasts";
@@ -229,6 +229,9 @@ export function SystemPage() {
                   {formatSpeed(stats.transcription.total.audio_s, stats.transcription.total.elapsed_s)
                     ? ` · ${formatSpeed(stats.transcription.total.audio_s, stats.transcription.total.elapsed_s)} realtime`
                     : ""}
+                  {stats.transcription.total.cost_usd != null
+                    ? ` · ${formatCost(stats.transcription.total.cost_usd)} reported cost`
+                    : ""}
                 </p>
                 <table className="sys-table">
                   <thead>
@@ -239,6 +242,7 @@ export function SystemPage() {
                       <th className="num">Audio</th>
                       <th className="num">Time</th>
                       <th className="num">Speed</th>
+                      <th className="num">Cost</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -250,6 +254,7 @@ export function SystemPage() {
                         <td className="num">{formatDuration(m.audio_s)}</td>
                         <td className="num">{formatDuration(m.elapsed_s)}</td>
                         <td className="num">{formatSpeed(m.audio_s, m.elapsed_s) ?? "-"}</td>
+                        <td className="num">{formatCost(m.cost_usd)}</td>
                       </tr>
                     ))}
                   </tbody>

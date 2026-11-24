@@ -426,6 +426,8 @@ export interface TranscriptionModelStats {
   calls: number;
   audio_s: number;
   elapsed_s: number;
+  /** null when the provider reported no cost */
+  cost_usd: number | null;
 }
 
 export interface SystemStats {
@@ -449,7 +451,7 @@ export interface SystemStats {
     by_model: LlmModelStats[];
   };
   transcription: {
-    total: { calls: number; audio_s: number; elapsed_s: number };
+    total: { calls: number; audio_s: number; elapsed_s: number; cost_usd: number | null };
     by_model: TranscriptionModelStats[];
   };
 }
