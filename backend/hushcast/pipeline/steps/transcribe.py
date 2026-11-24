@@ -64,31 +64,44 @@ def _record_raw_call(
     )
 
 
+def part_count(size_bytes: float, cap_bytes: float, duration_s: float, max_part_s: float) -> int:
+    """How many parts an upload needs to respect the size cap and the part length limit.
+
+    Either limit is off at 0. One part means the upload goes out whole.
+    """
+    by_size = 1
+    if cap_bytes > 0 and size_bytes > cap_bytes:
+        by_size = max(2, math.ceil(size_bytes / (cap_bytes * SPLIT_SAFETY_MARGIN)))
+    by_length = 1
+    if max_part_s > 0 and duration_s > max_part_s:
+        by_length = math.ceil(duration_s / max_part_s)
+    return max(by_size, by_length)
+
+
 async def _transcribe_in_parts(
     ctx: EpisodeContext,
     transcriber: TranscriptionProvider,
     upload_path: Path,
-    cap_bytes: float,
+    num_parts: int,
+    total_duration: float,
     raw_calls: list[dict],
 ) -> Transcript:
-    """The transcoded upload is still over the provider's size cap (typically a
-    very long episode). Slice it into consecutive parts that each land under
-    the cap, transcribe them individually, and stitch the results back into
-    one transcript with timestamps shifted to the original timeline.
+    """The upload is over the provider's size cap or its part length limit
+    (typically a very long episode). Slice it into consecutive parts that each
+    land under both, transcribe them individually, and stitch the results back
+    into one transcript with timestamps shifted to the original timeline.
     """
-    total_duration = await ffmpeg.probe_duration(upload_path)
     size = upload_path.stat().st_size
-    num_parts = max(2, math.ceil(size / (cap_bytes * SPLIT_SAFETY_MARGIN)))
     part_seconds = total_duration / num_parts
     # Keep the overlap sane if num_parts made for very short owned windows.
     overlap = min(SPLIT_OVERLAP_S, part_seconds / 4)
     parts = await ffmpeg.split_by_duration(
-        upload_path, ctx.config.original_audio_dir, f"{ctx.episode_id}.upload", ".ogg",
+        upload_path, ctx.config.original_audio_dir, f"{ctx.episode_id}.upload", upload_path.suffix,
         part_seconds, total_duration, overlap_seconds=overlap,
     )
     ctx.log.append(
-        f"transcoded upload still exceeds cap ({size / 1_000_000:.1f} MB), "
-        f"split into {len(parts)} parts of ~{part_seconds / 60:.1f} min each ({overlap:.0f}s overlap)"
+        f"upload ({size / 1_000_000:.1f} MB, {total_duration / 60:.0f} min) exceeds the size cap or the part "
+        f"length limit, split into {len(parts)} parts of ~{part_seconds / 60:.1f} min each ({overlap:.0f}s overlap)"
     )
     try:
         transcripts = []
@@ -144,8 +157,13 @@ async def run(ctx: EpisodeContext) -> None:
     started = time.monotonic()
     upload_size = upload_path.stat().st_size
     raw_calls: list[dict] = []
-    if max_mb > 0 and upload_size > cap_bytes:
-        transcript = await _transcribe_in_parts(ctx, transcriber, upload_path, cap_bytes, raw_calls)
+    max_part_s = float(ctx.settings.get("transcription_max_part_minutes") or 0) * 60
+    num_parts, total_duration = 1, 0.0
+    if (max_mb > 0 and upload_size > cap_bytes) or max_part_s > 0:
+        total_duration = await ffmpeg.probe_duration(upload_path)
+        num_parts = part_count(upload_size, cap_bytes, total_duration, max_part_s)
+    if num_parts > 1:
+        transcript = await _transcribe_in_parts(ctx, transcriber, upload_path, num_parts, total_duration, raw_calls)
     else:
         transcript = await transcriber.transcribe(upload_path)
         _record_raw_call(

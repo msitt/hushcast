@@ -29,6 +29,49 @@ MIME_BY_EXT = {
 }
 
 
+# A provider segment longer than this is not a usable line (ElevenLabs Scribe
+# answers with one segment for the whole file), so lines are built from the
+# word timestamps instead.
+COARSE_SEGMENT_S = 60.0
+
+# A pause this long between two words starts a new line when lines are built
+# from words, so no line stretches across music or dead air.
+WORD_GAP_BREAK_S = 2.0
+
+
+def _speaker_label(value: Any) -> str | None:
+    """Speaker label as text. Providers that number speakers start at 0, which
+    must not read as "no speaker"."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, int) and not isinstance(value, bool):
+        return f"SPEAKER_{value:02d}"
+    return str(value)
+
+
+def _split_audio_events(raw_words: list[Any]) -> tuple[list[Any], list[tuple[float, float]]]:
+    """Separate spoken words from sound tags.
+
+    Scribe lists non-speech sounds among the words, as entries like
+    `{"word": "[upbeat music]", "type": "audio_event"}`. They are not speech, so
+    they leave the transcript. The music ones come back as time ranges, which
+    the cues step turns into music cues.
+    """
+    spoken: list[Any] = []
+    music: list[tuple[float, float]] = []
+    for w in raw_words:
+        if not (isinstance(w, dict) and w.get("type") == "audio_event"):
+            spoken.append(w)
+            continue
+        label = str(w.get("word") or w.get("text") or "").lower()
+        if "music" in label and w.get("start") is not None:
+            start = float(w["start"])
+            end = float(w.get("end", start))
+            if end > start:
+                music.append((start, end))
+    return spoken, music
+
+
 def _parse_words(raw_words: list[Any]) -> list[Word]:
     """Word objects from a provider's raw word list, skipping unusable entries."""
     return [
@@ -36,7 +79,7 @@ def _parse_words(raw_words: list[Any]) -> list[Word]:
             text=w.get("word") or w.get("text") or "",
             start=float(w["start"]),
             end=float(w.get("end", w["start"])),
-            speaker=w.get("speaker"),
+            speaker=_speaker_label(w.get("speaker")),
         )
         for w in raw_words
         if isinstance(w, dict) and w.get("start") is not None
@@ -58,8 +101,8 @@ def _segments_from_words(raw_words: list[Any]) -> list[TranscriptSegment]:
 
     Gemini-style transcription endpoints answer with a flat word array and no
     segmentation at all, which leaves detection with no boundary to cut at. One
-    segment per run of consecutive same-speaker words gives it something real,
-    and sentence splitting divides those further. The synthesized text is joined
+    segment per run of consecutive same-speaker words, broken at long pauses,
+    gives it something real, and sentence splitting divides those further. The synthesized text is joined
     from the same words it carries, so the two align token for token and the
     split lands on exact word timings rather than prorated ones.
     """
@@ -69,7 +112,7 @@ def _segments_from_words(raw_words: list[Any]) -> list[TranscriptSegment]:
     segments: list[TranscriptSegment] = []
     run: list[Word] = []
     for w in sorted(words, key=lambda w: (w.start, w.end)):
-        if run and w.speaker != run[0].speaker:
+        if run and (w.speaker != run[0].speaker or w.start - run[-1].end >= WORD_GAP_BREAK_S):
             segments.append(_segment_from_run(run))
             run = []
         run.append(w)
@@ -175,6 +218,9 @@ class OpenAICompatTranscriber(TranscriptionProvider):
         if isinstance(raw_segments, dict):
             top_words = top_words or raw_segments.get("word_segments")
             raw_segments = raw_segments.get("segments") or []
+        music: list[tuple[float, float]] = []
+        if isinstance(top_words, list):
+            top_words, music = _split_audio_events(top_words)
 
         segments: list[TranscriptSegment] = []
         for s in raw_segments:
@@ -185,7 +231,7 @@ class OpenAICompatTranscriber(TranscriptionProvider):
                     text=w.get("word") or w.get("text") or "",
                     start=float(w.get("start", 0.0)),
                     end=float(w.get("end", 0.0)),
-                    speaker=w.get("speaker"),
+                    speaker=_speaker_label(w.get("speaker")),
                 )
                 for w in (s.get("words") or [])
                 if isinstance(w, dict) and w.get("start") is not None
@@ -195,11 +241,17 @@ class OpenAICompatTranscriber(TranscriptionProvider):
                     text=(s.get("text") or "").strip(),
                     start=float(s.get("start", 0.0)),
                     end=float(s.get("end", 0.0)),
-                    speaker=s.get("speaker"),
+                    speaker=_speaker_label(s.get("speaker")),
                     words=words,
                 )
             )
-        if not segments and top_words:
+        coarse = any(s.end - s.start > COARSE_SEGMENT_S for s in segments)
+        if coarse and len(segments) == 1 and not top_words and not segments[0].words:
+            raise RuntimeError(
+                f"transcription returned one segment of {segments[0].end - segments[0].start:.0f}s and no "
+                "word timestamps, so lines cannot be timed. Turn on word timestamps for this provider."
+            )
+        if top_words and (not segments or coarse):
             segments = _segments_from_words(top_words)
         elif top_words and not any(s.words for s in segments):
             _distribute_words(segments, top_words)
@@ -218,7 +270,9 @@ class OpenAICompatTranscriber(TranscriptionProvider):
         duration = payload.get("duration")
         if not duration and segments:
             duration = segments[-1].end
-        return Transcript(language=payload.get("language"), duration=float(duration or 0.0), segments=segments)
+        return Transcript(
+            language=payload.get("language"), duration=float(duration or 0.0), segments=segments, music=music
+        )
 
     async def health_check(self) -> None:
         if not self.base_url:

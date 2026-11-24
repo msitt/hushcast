@@ -461,6 +461,7 @@ export interface Settings {
   transcription_word_timestamps: boolean;
   transcription_diarize: boolean;
   transcription_max_upload_mb: number;
+  transcription_max_part_minutes: number;
   transcription_timeout_s: number;
   transcription_extra_params: Record<string, unknown>;
   llm_base_url: string;

@@ -72,3 +72,31 @@ async def test_corrupt_cue_file_loads_as_none(tmp_path):
     ctx = make_ctx(tmp_path)
     ctx.cues_path.write_text("{not json")
     assert cues_step.load_cues(ctx) is None
+
+
+async def test_transcript_music_is_merged_into_the_cues(tmp_path, monkeypatch):
+    ctx = make_ctx(tmp_path, cue_provider="silence")
+    ctx.transcript_path.parent.mkdir(parents=True, exist_ok=True)
+    ctx.transcript_path.write_text(json.dumps({
+        "language": "en", "duration": 100.0, "segments": [], "music": [[10.0, 40.0], [60.0, 70.0]],
+    }))
+
+    async def detect(self, path):
+        # the second music range is already covered by a provider music cue
+        return [Cue(start=5.0, end=6.5, kind="silence"), Cue(start=59.0, end=71.0, kind="music")]
+
+    monkeypatch.setattr("hushcast.cues.silencedetect.SilenceDetectProvider.detect", detect)
+    await cues_step.run(ctx)
+    assert cues_step.load_cues(ctx) == [
+        Cue(start=5.0, end=6.5, kind="silence"),
+        Cue(start=10.0, end=40.0, kind="music"),
+        Cue(start=59.0, end=71.0, kind="music"),
+    ]
+
+
+async def test_transcript_music_ignored_when_cues_are_off(tmp_path):
+    ctx = make_ctx(tmp_path, cue_provider="off")
+    ctx.transcript_path.parent.mkdir(parents=True, exist_ok=True)
+    ctx.transcript_path.write_text(json.dumps({"segments": [], "music": [[10.0, 40.0]]}))
+    await cues_step.run(ctx)
+    assert not ctx.cues_path.exists()

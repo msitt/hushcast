@@ -87,6 +87,8 @@ DEFAULTS: dict[str, Any] = {
     "transcription_word_timestamps": False,
     "transcription_diarize": False,
     "transcription_max_upload_mb": 24,  # 0 = no limit, if exceeded, transcode to small opus first
+    # 0 = no limit, longer audio is sent in parts (for providers that time out on long requests)
+    "transcription_max_part_minutes": 0,
     "transcription_timeout_s": 600,
     "transcription_extra_params": {},
     # ad-detection LLM (OpenAI-compatible chat completions)

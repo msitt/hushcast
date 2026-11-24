@@ -13,6 +13,7 @@ export const SECRET_MASK = "••••••••";
 
 export const NUMBER_KEYS: (keyof Settings)[] = [
   "transcription_max_upload_mb",
+  "transcription_max_part_minutes",
   "transcription_timeout_s",
   "llm_temperature",
   "llm_context_budget_tokens",

@@ -25,6 +25,26 @@ def load_cues(ctx: EpisodeContext) -> list[Cue] | None:
         return None
 
 
+def _transcript_music(ctx: EpisodeContext, cues: list[Cue]) -> list[Cue]:
+    """Music ranges the transcription provider reported, as cues.
+
+    A range that a provider music cue already mostly covers is left out, so the
+    prompt does not list the same music twice.
+    """
+    try:
+        data = json.loads(ctx.transcript_path.read_text(encoding="utf-8"))
+        ranges = [(float(a), float(b)) for a, b in data.get("music") or []]
+    except (OSError, ValueError, TypeError, AttributeError):
+        return []
+    have = [(c.start, c.end) for c in cues if c.kind == "music"]
+    out: list[Cue] = []
+    for a, b in ranges:
+        covered = sum(max(0.0, min(b, e) - max(a, s)) for s, e in have)
+        if b > a and covered < 0.5 * (b - a):
+            out.append(Cue(start=a, end=b, kind="music"))
+    return out
+
+
 async def run(ctx: EpisodeContext) -> None:
     provider = build_cue_provider(ctx.settings)
     if provider is None:
@@ -63,6 +83,11 @@ async def run(ctx: EpisodeContext) -> None:
                 cues = []
                 provider_used = "none"
     elapsed = time.monotonic() - started
+
+    from_transcript = _transcript_music(ctx, cues)
+    if from_transcript:
+        cues = sorted([*cues, *from_transcript], key=lambda c: (c.start, c.end))
+        ctx.log.append(f"cues: added {len(from_transcript)} music range(s) reported by the transcription provider")
 
     tmp = ctx.cues_path.with_suffix(".tmp.json")
     tmp.write_text(json.dumps(cues_to_json(cues)), encoding="utf-8")

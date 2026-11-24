@@ -9,6 +9,7 @@ const KEYS = [
   "transcription_word_timestamps",
   "transcription_diarize",
   "transcription_max_upload_mb",
+  "transcription_max_part_minutes",
   "transcription_timeout_s",
   "transcription_extra_params",
 ] as const;
@@ -44,13 +45,15 @@ export function TranscriptionPage() {
           <CheckField draft={draft} set={set} k="transcription_word_timestamps" label="Word timestamps"
             hint="Request per-word timing. When available, cut points are refined into pauses between words. Otherwise cuts snap to segment boundaries." />
           <CheckField draft={draft} set={set} k="transcription_diarize" label="Diarize speakers"
-            hint="Label who is speaking (whisperx only). Helps the LLM spot inserted ads read by a voice not heard elsewhere." />
+            hint="Label who is speaking, where the provider supports it. Helps the LLM spot inserted ads read by a voice not heard elsewhere." />
         </div>
         <div className="form-row">
           <NumField draft={draft} set={set} k="transcription_max_upload_mb" label="Max upload (MB)"
             hint="Size limit for transcription APIs. Set to 0 for no limit." />
+          <NumField draft={draft} set={set} k="transcription_max_part_minutes" label="Max part length (min)"
+            hint="Longer episodes are sent in parts of at most this length, for providers that time out on long audio. Set to 0 for no limit." />
           <NumField draft={draft} set={set} k="transcription_timeout_s" label="Timeout (s)"
-            hint="Max wait for one transcription." />
+            hint="Max wait for one transcription request." />
         </div>
         <label className="field">
           <span className="field-label">Extra params (JSON object)</span>
