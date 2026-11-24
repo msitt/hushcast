@@ -1,1 +1,0 @@
-- Detection now catches a single ad segment longer than any real ad break, which usually means the model joined two breaks and would cut the show in between. Detection runs once more, and if the new result has one too, the episode is held for review. The limit (6 minutes by default) is under Settings → Ad detection, and evals report how often each model needed the re-detection.

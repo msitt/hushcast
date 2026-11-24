@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.7.0] - 2026-11-24
+
+### Added
+
+- Episode pages show the detected segments on a timeline, with ads, your corrections, and optional ranges drawn differently. Click a segment to open it in the transcript.
+- Detection now catches a single ad segment longer than any real ad break, which usually means the model joined two breaks and would cut the show in between. Detection runs once more, and if the new result has one too, the episode is held for review. The limit (6 minutes by default) is under Settings → Ad detection, and evals report how often each model needed the re-detection.
+
 ## [1.6.0] - 2026-11-23
 
 ### Added
