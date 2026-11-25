@@ -176,6 +176,27 @@ def test_credentials_unreachable_via_settings_api(make_client):
         assert "auth_username" not in client.get("/api/settings").json()
 
 
+def test_secrets_revealed_only_on_request(make_client):
+    with make_client() as client:
+        client.post("/api/auth/setup", json={"username": "me", "password": "hunter2hunter2"})
+        client.put("/api/settings", json={"llm_api_key": "sk-real"})
+        assert client.get("/api/settings").json()["llm_api_key"] == "••••••••"
+        assert client.get("/api/settings/secrets/llm_api_key").json() == {"value": "sk-real"}
+        # only the secret settings, never credentials or other keys
+        assert client.get("/api/settings/secrets/llm_model").status_code == 404
+        assert client.get("/api/settings/secrets/auth_password_hash").status_code == 404
+
+        r = client.post("/api/evals/models", json={"name": "m", "model": "x", "api_key": "sk-model"})
+        model_id = r.json()["id"]
+        assert "api_key" not in r.json()
+        assert client.get(f"/api/evals/models/{model_id}/api-key").json() == {"value": "sk-model"}
+        assert client.get("/api/evals/models/999999/api-key").status_code == 404
+
+        client.post("/api/auth/logout")
+        assert client.get("/api/settings/secrets/llm_api_key").status_code == 401
+        assert client.get(f"/api/evals/models/{model_id}/api-key").status_code == 401
+
+
 def test_credentials_survive_restart(make_client, monkeypatch):
     with make_client() as client:
         client.post("/api/auth/setup", json={"username": "me", "password": "hunter2hunter2"})

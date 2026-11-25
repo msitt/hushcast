@@ -583,8 +583,32 @@ input[type="checkbox"] {
 textarea {
   resize: vertical;
 }
+.secret-field {
+  position: relative;
+  display: block;
+}
 .secret-input {
+  padding-right: 64px;
+}
+.secret-masked {
   -webkit-text-security: disc;
+}
+.secret-actions {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+}
+.secret-actions .icon-btn {
+  padding: 4px;
+}
+.secret-actions .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+  color: var(--text-dim);
 }
 textarea.mono {
   font-family: var(--mono);

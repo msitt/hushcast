@@ -46,6 +46,16 @@ async def put_settings(
     return settings_store.masked(settings)
 
 
+@router.get("/secrets/{key}")
+async def reveal_secret(key: str, session: AsyncSession = Depends(get_session)) -> dict[str, str]:
+    """One stored secret in plain text. Normal reads stay masked so a key only
+    leaves the server when the user asks to see it."""
+    if key not in settings_store.SECRET_KEYS:
+        raise HTTPException(404, "not a secret setting")
+    settings = await settings_store.get_all(session)
+    return {"value": str(settings.get(key) or "")}
+
+
 @router.post("/regenerate-token")
 async def regenerate_token(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     await settings_store.set_many(session, {"feed_token": ""})

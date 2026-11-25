@@ -80,6 +80,7 @@ function ConnectionPanel({ onSaved }: { onSaved: () => void }) {
               value={key}
               onChange={(e) => setKey(e.target.value)}
               onFocus={() => key === SECRET_MASK && setKey("")}
+              reveal={async () => (await api.revealSecret("eval_llm_api_key")).value}
               placeholder="Blank uses the production key"
             />
             <span className="field-hint">
@@ -216,6 +217,7 @@ function ModelDialog({
               value={d.api_key}
               onChange={set("api_key")}
               onFocus={() => d.api_key === SECRET_MASK && setD((p) => ({ ...p, api_key: "" }))}
+              reveal={model ? async () => (await api.revealEvalModelKey(model.id)).value : undefined}
             />
             <span className="field-hint">
               Overrides the eval connection's key. Required when the base URL above is set.

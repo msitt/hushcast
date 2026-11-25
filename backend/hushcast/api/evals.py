@@ -240,6 +240,15 @@ async def update_eval_model(
     return _model_out(m, await settings_store.get_all(session))
 
 
+@router.get("/evals/models/{model_id}/api-key")
+async def reveal_eval_model_key(model_id: int, session: AsyncSession = Depends(get_session)) -> dict:
+    """The model's stored key in plain text, fetched only when the user asks to see it."""
+    m = await session.get(EvalModel, model_id)
+    if m is None:
+        raise HTTPException(404, "model not found")
+    return {"value": m.api_key or ""}
+
+
 @router.delete("/evals/models/{model_id}", status_code=204)
 async def delete_eval_model(model_id: int, session: AsyncSession = Depends(get_session)) -> None:
     busy = (

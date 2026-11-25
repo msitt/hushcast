@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckIcon, XIcon } from "@phosphor-icons/react";
 import { api, type Settings, type TestResult } from "../../api/client";
-import { SecretInput } from "../../components/SecretInput";
+import { SECRET_MASK, SecretInput } from "../../components/SecretInput";
 import { useToasts } from "../../components/Toasts";
 import { useSettingsContext } from "./context";
 
@@ -9,7 +9,7 @@ import { useSettingsContext } from "./context";
 // subset of Settings keys with its own draft/save state, kept loosely typed
 // (Record<string, string | boolean>) the way the original single-page form was.
 
-export const SECRET_MASK = "••••••••";
+export { SECRET_MASK };
 
 export const NUMBER_KEYS: (keyof Settings)[] = [
   "transcription_max_upload_mb",
@@ -202,7 +202,12 @@ export function TextField({
     <label className="field">
       <span className="field-label">{label}</span>
       {secret ? (
-        <SecretInput placeholder={placeholder} value={draft[k] as string} onChange={(e) => set(k, e.target.value)} />
+        <SecretInput
+          placeholder={placeholder}
+          value={draft[k] as string}
+          onChange={(e) => set(k, e.target.value)}
+          reveal={async () => (await api.revealSecret(k)).value}
+        />
       ) : (
         <input
           type={type}

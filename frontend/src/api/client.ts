@@ -651,6 +651,7 @@ export const api = {
   createEvalModel: (body: EvalModelIn) => post<EvalModelOut>("/api/evals/models", body),
   updateEvalModel: (id: number, body: EvalModelIn) =>
     request<EvalModelOut>(`/api/evals/models/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  revealEvalModelKey: (id: number) => get<{ value: string }>(`/api/evals/models/${id}/api-key`),
   deleteEvalModel: (id: number) => request<void>(`/api/evals/models/${id}`, { method: "DELETE" }),
   testEvalModel: (id: number) => post<TestResult>(`/api/evals/models/${id}/test`),
   promoteEvalModel: (id: number) =>
@@ -694,6 +695,7 @@ export const api = {
     post<TestResult>("/api/settings/test/llm", overrides ?? {}),
   testNotifications: (overrides?: Partial<Settings>) =>
     post<TestResult>("/api/settings/test/notifications", overrides ?? {}),
+  revealSecret: (key: string) => get<{ value: string }>(`/api/settings/secrets/${encodeURIComponent(key)}`),
   regenerateToken: () => post<{ feed_token: string }>("/api/settings/regenerate-token"),
   systemStatus: () => get<SystemStatus>("/api/system/status"),
   systemInfo: () => get<SystemInfo>("/api/system/info"),
