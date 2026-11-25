@@ -1,1 +1,0 @@
-- API key fields now have show and copy buttons, so a saved key can be viewed or copied out of the app. Saved keys are still never sent to the browser unless you ask to see one.

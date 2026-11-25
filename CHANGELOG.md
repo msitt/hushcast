@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.8.0] - 2026-11-25
+
+### Added
+
+- The System page and each episode's LLM calls show what ad detection cost, for providers that report it (such as OpenRouter). Past calls through OpenRouter are counted too.
+- API key fields now have show and copy buttons, so a saved key can be viewed or copied out of the app. Saved keys are still never sent to the browser unless you ask to see one.
+- Transcription works with providers that return one block of text plus word timings, such as ElevenLabs
+  Scribe through OpenRouter. Lines are built from the word timings (word timestamps must be on), and music
+  the provider reports is used as audio cues for ad detection.
+- New "Max part length" transcription setting sends long episodes in parts, for providers that time out on
+  long audio.
+- Speaker labels from providers that number speakers from 0 are no longer dropped.
+- The System page shows what transcription cost, for providers that report it (such as OpenRouter).
+- Transcription extra params can hold nested options, such as OpenRouter's per-provider settings.
+
+### Fixed
+
+- Detection no longer fails when a reasoning model spends its whole token limit thinking and returns an empty reply. The reply is retried like other malformed output, and the episode's LLM history says why.
+- Marking part of a detected ad as "not an ad" now keeps that audio in the cut episode. Before, the whole detected block was still removed. Reprocess affected episodes from the cut step to fix them.
+
 ## [1.7.0] - 2026-11-24
 
 ### Added
