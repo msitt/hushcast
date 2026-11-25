@@ -97,3 +97,14 @@ def test_concat_keeps_whole_segments_that_do_not_cross_a_boundary():
     part_a = _transcript("en", [_worded([("a", 10.0), ("b", 11.0)])])
     merged = Transcript.concat([part_a], [0.0], owned_ranges=[(0.0, 100.0)])
     assert [s.text for s in merged.segments] == ["a b"]
+
+
+def test_empty_music_is_left_out_of_the_json():
+    # eval labels hash this JSON, so a transcript without music must serialize
+    # the same as one saved before the field existed
+    t = Transcript(language="en", duration=10.0, segments=[TranscriptSegment(text="hi", start=0.0, end=1.0)])
+    assert "music" not in t.to_json_dict()
+    assert Transcript.from_json_dict(t.to_json_dict()) == t
+    with_music = Transcript(language="en", duration=10.0, segments=[], music=[(2.0, 5.0)])
+    assert with_music.to_json_dict()["music"] == [(2.0, 5.0)]
+    assert Transcript.from_json_dict(with_music.to_json_dict()) == with_music

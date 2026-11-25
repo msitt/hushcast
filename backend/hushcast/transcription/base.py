@@ -34,7 +34,13 @@ class Transcript:
     music: list[tuple[float, float]] = field(default_factory=list)
 
     def to_json_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        # Left out when empty so a transcript serializes the same as before the
+        # field existed: eval labels hash this JSON, and re-saving an older label
+        # must not mark its results stale over an empty list.
+        if not data["music"]:
+            del data["music"]
+        return data
 
     @classmethod
     def from_json_dict(cls, data: dict[str, Any]) -> Transcript:
