@@ -2,15 +2,21 @@ import math
 
 import pytest
 
-from hushcast.evals.scoring import ScoreConfig, aggregate, score_episode
+from hushcast.evals.scoring import (
+    EDGE_SILENCE_MAX_S,
+    ScoreConfig,
+    aggregate,
+    score_episode,
+    silence_intervals,
+)
 
 CFG = ScoreConfig(collar_s=1.0, content_weight=3.0, blunder_s=5.0)
 
 
-def score(truth, predicted, *, outcome="cut", promo=False, duration=3600.0, cfg=CFG, optional=None):
+def score(truth, predicted, *, outcome="cut", promo=False, duration=3600.0, cfg=CFG, optional=None, silence=None):
     return score_episode(
         episode_id=1, duration_s=duration, truth=truth, truth_promo=promo,
-        predicted=predicted, outcome=outcome, cfg=cfg, optional=optional,
+        predicted=predicted, outcome=outcome, cfg=cfg, optional=optional, silence=silence,
     )
 
 
@@ -144,3 +150,34 @@ def test_aggregate_reports_optional_share_cut():
     assert a.optional_cut == pytest.approx(0.5)
     assert a.weighted_error_per_h == 0
     assert math.isnan(aggregate([score([(100, 160)], [(100, 160)])], CFG).optional_cut)
+
+
+def test_silence_at_a_boundary_is_not_scored():
+    # the ad ends at 160, then 3 s of silence before the show resumes
+    kept = score([(100, 160)], [(100, 157)], silence=[(157, 160)])
+    assert kept.missed_ad_s == 0
+    cut = score([(100, 157)], [(100, 160)], silence=[(157, 160)])
+    assert cut.content_cut_s == 0
+
+
+def test_speech_past_the_edge_silence_still_counts():
+    s = score([(100, 160)], [(100, 165)], silence=[(160, 163)])
+    assert s.content_cut_s == pytest.approx(2)  # 163-165 is show speech
+
+
+def test_long_or_distant_silence_is_still_scored():
+    long = EDGE_SILENCE_MAX_S + 1
+    s = score([(100, 160)], [(100, 160 + long)], silence=[(160, 160 + long)])
+    assert s.content_cut_s == pytest.approx(long - 1)  # only the collar is forgiven
+    far = score([(100, 160)], [(100, 166)], silence=[(163, 166)])
+    assert far.content_cut_s == pytest.approx(5)  # 161-166, the silence doesn't touch the edge
+
+
+def test_silence_intervals_from_lines_words_and_cues():
+    transcript = {"segments": [
+        {"start": 0.0, "end": 4.0, "words": [{"start": 0.0, "end": 1.0}, {"start": 1.5, "end": 4.0}]},
+        {"start": 6.0, "end": 9.0, "words": []},
+    ]}
+    cues = [{"start": 20.0, "end": 22.0, "kind": "silence"}, {"start": 30.0, "end": 40.0, "kind": "music"}]
+    assert silence_intervals(transcript, cues) == [(1.0, 1.5), (4.0, 6.0), (20.0, 22.0)]
+    assert silence_intervals(None, None) == []

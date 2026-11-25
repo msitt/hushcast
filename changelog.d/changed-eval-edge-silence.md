@@ -1,0 +1,1 @@
+- Eval scoring no longer counts silence of up to 5 seconds at the edge of an ad as cut show or a missed ad, so a model isn't penalized for where in a pause its cut lands.

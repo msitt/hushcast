@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import settings_store
 from ..models import Episode, EvalLabel, EvalResult, EvalRun, Feed
 from . import labels, summarize
-from .scoring import ScoreConfig, score_episode
+from .scoring import ScoreConfig, score_episode, silence_intervals
 
 
 async def run_progress(session: AsyncSession, run_ids: list[int]) -> dict[int, dict[str, Any]]:
@@ -97,9 +97,14 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
     ).all()
     episodes: dict[str, dict[str, Any]] = {}
     hashes: dict[int, str | None] = {}
+    # kept apart from `episodes`, which goes out in the response
+    silences: dict[str, list] = {}
     for label, ep in label_rows:
         feed = feeds.get(ep.feed_id)
         hashes[ep.id] = label.inputs_hash
+        silences[str(ep.id)] = silence_intervals(
+            json.loads(label.transcript_json or "{}"), json.loads(label.cues_json) if label.cues_json else None
+        )
         episodes[str(ep.id)] = {
             "episode_id": ep.id,
             "episode_title": label.episode_title or ep.title,
@@ -140,7 +145,7 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
             "variant": {"name": run.name},
             "hints_mode": run.hints_mode,
             "episodes": {
-                eid: {**ep, "hints_leak": run.hints_mode == "current" and ep["leak"]}
+                eid: {**ep, "silence": silences[eid], "hints_leak": run.hints_mode == "current" and ep["leak"]}
                 for eid, ep in episodes.items()
                 if eid in used
             },
@@ -177,6 +182,7 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
                     duration_s=float(ep["duration_s"]),
                     truth=[(t[0], t[1]) for t in ep["truth"]],
                     optional=[(o[0], o[1]) for o in ep["optional"]],
+                    silence=silences[eid],
                     truth_promo=bool(ep["promo"]),
                     predicted=[(seg[0], seg[1]) for seg in r["segments"]],
                     outcome=r["outcome"],

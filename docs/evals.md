@@ -61,6 +61,8 @@ Scoring controls re-score everything in place, since runs store predictions and 
 - **Collar** (default 1 s): ignored on each side of every ground-truth boundary, since labels and transcript line edges are only accurate to about a second.
 - **Blunder** (default 5 s): the content cut in one episode that counts as a blunder.
 
+Silence at a ground-truth boundary is left out too, up to 5 s of it. Where an ad ends inside a pause is arbitrary, and keeping or cutting a few seconds of silence makes no difference to a listener. Silence comes from the gaps between transcript lines, the gaps between words when the transcript has word timestamps, and the silence cues.
+
 Optional ranges are left out the same way as the collar: cutting one is not content cut, keeping one is not a missed ad, and a cut that covers only optional audio is not a spurious block. Ad ranges separated only by optional audio count as one block.
 
 Below the table, the cost versus error chart shows which models are worth their price, and the per-episode table opens a timeline of where each run's cuts fell against the ground truth. Filter that table by podcast, or sort it to bring up the episodes a model did worst on or the ones the models disagree on most. **Use this model** makes a model the one production detection uses.

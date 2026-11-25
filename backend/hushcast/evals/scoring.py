@@ -9,6 +9,11 @@ ranks models while the raw pair stays visible. A collar around every truth
 boundary is ignored for both: labels and transcript line edges are only
 accurate to a second or two, and scoring that slack rewards luck.
 
+Silence at a truth boundary is ignored too, up to EDGE_SILENCE_MAX_S. Where
+an ad ends inside a pause is arbitrary (the label may end at the last ad word
+or at the first show word), and a cut that keeps or removes a few seconds of
+silence makes no difference to a listener.
+
 Optional ranges are ignored the same way. They mark audio where cutting and
 keeping are both acceptable (a network ident, a "coming up" teaser), so a
 prediction is neither rewarded nor punished there. How much of them a model
@@ -20,8 +25,15 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
+from typing import Any
 
 from .intervals import Interval, intersect, subtract, total, union
+
+# Silence at a truth boundary is not scored when at most this long. Longer
+# stretches are left to the scoring, since that much dead air is worth cutting.
+EDGE_SILENCE_MAX_S = 5.0
+# how close a silence edge must be to a truth boundary to count as touching it
+_TOUCH_S = 0.25
 
 # A truth block counts as found when the prediction covers this share of it,
 # and a predicted block as spurious when truth covers less than this share.
@@ -78,6 +90,30 @@ def _collar(truth: list[Interval], collar_s: float, duration: float) -> list[Int
     return union(zones)
 
 
+def silence_intervals(transcript: dict[str, Any] | None, cues: list[dict[str, Any]] | None) -> list[Interval]:
+    """Silence in an episode: gaps between transcript lines, gaps between words
+    when the transcript has word timestamps, and silence cues."""
+    out: list[Interval] = []
+    segments = sorted((transcript or {}).get("segments") or [], key=lambda s: s["start"])
+    for prev, nxt in zip(segments, segments[1:], strict=False):
+        out.append((float(prev["end"]), float(nxt["start"])))
+    words = sorted((w for s in segments for w in s.get("words") or []), key=lambda w: w["start"])
+    for prev, nxt in zip(words, words[1:], strict=False):
+        out.append((float(prev["end"]), float(nxt["start"])))
+    out += [(float(c["start"]), float(c["end"])) for c in cues or [] if c.get("kind") == "silence"]
+    return [(round(a, 2), round(b, 2)) for a, b in union(out)]
+
+
+def _edge_silence(boundaries: list[Interval], silence: list[Interval]) -> list[Interval]:
+    """The silences, up to EDGE_SILENCE_MAX_S long, that touch a truth boundary."""
+    edges = [b for start, end in boundaries for b in (start, end)]
+    return [
+        (s, e)
+        for s, e in silence
+        if e - s <= EDGE_SILENCE_MAX_S and any(s - _TOUCH_S <= b <= e + _TOUCH_S for b in edges)
+    ]
+
+
 def _blocks(truth_u: list[Interval], opt_u: list[Interval]) -> list[Interval]:
     """Truth blocks for the block metrics. Truth ranges separated only by
     optional audio are one block, since a single cut across them is correct."""
@@ -99,6 +135,7 @@ def score_episode(
     outcome: str,
     cfg: ScoreConfig,
     optional: list[Interval] | None = None,
+    silence: list[Interval] | None = None,
 ) -> EpisodeScore:
     expected = "promo" if truth_promo else "cut"
     if truth_promo:
@@ -108,7 +145,9 @@ def score_episode(
     truth_u = subtract(truth, opt_u)
     # promo and error outcomes cut nothing
     pred_u = union(predicted) if outcome in ("cut", "review") else []
-    zones = union(_collar(truth_u + opt_u, cfg.collar_s, duration_s) + opt_u)
+    zones = union(
+        _collar(truth_u + opt_u, cfg.collar_s, duration_s) + opt_u + _edge_silence(truth_u + opt_u, silence or [])
+    )
     blocks = _blocks(truth_u, opt_u)
 
     score = EpisodeScore(

@@ -32,6 +32,7 @@ from ..detection import llm as llm_mod
 from ..detection.finalize import detect_and_finalize
 from ..errors import RateLimitError
 from ..transcription.base import Transcript
+from .scoring import silence_intervals
 
 REPORT_VERSION = 1
 # Settings a variant may not take from a file, only from the environment.
@@ -385,6 +386,7 @@ async def run_variant(
                 "promo": e["promo"],
                 "truth": [[t["start"], t["end"], t["category"]] for t in e["truth"]],
                 "optional": e.get("optional") or [],
+                "silence": silence_intervals(e.get("transcript"), e.get("cues")),
                 "transcript_source": e.get("transcript_source"),
                 # corrections on it may have been distilled into the hints this run used
                 "hints_leak": hints_mode == "current" and bool(e.get("hints_leak")),

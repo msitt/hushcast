@@ -48,6 +48,8 @@ def episode_scores(report: dict[str, Any], episode_ids: list[str], cfg: ScoreCon
                 truth=[(t[0], t[1]) for t in ep["truth"]],
                 # absent in reports and datasets made before optional ranges existed
                 optional=[(o[0], o[1]) for o in ep.get("optional") or []],
+                # absent in reports made before edge silence was ignored
+                silence=[(a, b) for a, b in ep.get("silence") or []],
                 truth_promo=bool(ep["promo"]),
                 predicted=[(s[0], s[1]) for s in run["segments"]],
                 outcome=run["outcome"],
