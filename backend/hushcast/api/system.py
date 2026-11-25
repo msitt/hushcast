@@ -229,6 +229,12 @@ async def logs(
     return {"records": records, "capacity": logbuffer.handler.capacity}
 
 
+def _total_cost(models: list[dict]) -> float | None:
+    """Sum of the reported costs across models, None when none reported one."""
+    costs = [m["cost_usd"] for m in models if m["cost_usd"] is not None]
+    return sum(costs) if costs else None
+
+
 @router.get("/stats")
 async def stats(session: AsyncSession = Depends(get_session)) -> dict:
     finished = Episode.status.in_(FINISHED)
@@ -319,11 +325,12 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 func.coalesce(func.sum(LlmCall.prompt_tokens), 0),
                 func.coalesce(func.sum(LlmCall.completion_tokens), 0),
                 func.coalesce(func.sum(LlmCall.elapsed_s), 0.0),
+                func.sum(LlmCall.cost_usd),  # None when no call reported a cost
             ).group_by(LlmCall.url, LlmCall.model)
         )
     ).all()
     by_model: dict[tuple[str, str], dict] = {}
-    for url, model, calls, ptok, ctok, elapsed in llm_rows:
+    for url, model, calls, ptok, ctok, elapsed, cost in llm_rows:
         key = (provider_host(url), model)
         entry = by_model.setdefault(
             key,
@@ -334,12 +341,15 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "elapsed_s": 0.0,
+                "cost_usd": None,  # None = unknown, 0 = free
             },
         )
         entry["calls"] += calls
         entry["prompt_tokens"] += ptok
         entry["completion_tokens"] += ctok
         entry["elapsed_s"] += elapsed
+        if cost is not None:
+            entry["cost_usd"] = (entry["cost_usd"] or 0.0) + cost
     llm_models = sorted(
         by_model.values(), key=lambda m: m["prompt_tokens"] + m["completion_tokens"], reverse=True
     )
@@ -394,6 +404,7 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 "prompt_tokens": sum(m["prompt_tokens"] for m in llm_models),
                 "completion_tokens": sum(m["completion_tokens"] for m in llm_models),
                 "elapsed_s": sum(m["elapsed_s"] for m in llm_models),
+                "cost_usd": _total_cost(llm_models),
             },
             "by_model": llm_models,
         },
@@ -402,11 +413,7 @@ async def stats(session: AsyncSession = Depends(get_session)) -> dict:
                 "calls": sum(m["calls"] for m in transcription_models),
                 "audio_s": sum(m["audio_s"] for m in transcription_models),
                 "elapsed_s": sum(m["elapsed_s"] for m in transcription_models),
-                "cost_usd": (
-                    sum(m["cost_usd"] for m in transcription_models if m["cost_usd"] is not None)
-                    if any(m["cost_usd"] is not None for m in transcription_models)
-                    else None
-                ),
+                "cost_usd": _total_cost(transcription_models),
             },
             "by_model": transcription_models,
         },

@@ -53,6 +53,7 @@ async def run(ctx: EpisodeContext) -> None:
                     finish_reason=call["finish_reason"],
                     prompt_tokens=call["prompt_tokens"],
                     completion_tokens=call["completion_tokens"],
+                    cost_usd=call["cost_usd"],
                     elapsed_s=call["elapsed_s"],
                 )
             )

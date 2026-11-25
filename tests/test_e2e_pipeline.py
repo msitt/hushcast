@@ -95,6 +95,8 @@ def make_stub_app(audio_path) -> FastAPI:
         if body.get("model") == "stub-free":
             # a provider that reports cost, and the model is free
             resp["usage"] = {"prompt_tokens": 100, "completion_tokens": 20, "cost": 0.0}
+        elif body.get("model") == "stub-model":
+            resp["usage"] = {"prompt_tokens": 100, "completion_tokens": 20, "cost": 0.0042}
         return resp
 
     return app
@@ -196,7 +198,11 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         calls = client.get(f"/api/episodes/{episode['id']}/llm-calls").json()
         assert len(calls) == 1
         assert calls[0]["model"] == "stub-model"
+        assert calls[0]["cost_usd"] == pytest.approx(0.0042)
+        llm_usage = client.get("/api/system/stats").json()["llm"]
+        assert llm_usage["total"]["cost_usd"] == pytest.approx(0.0042 * llm_usage["total"]["calls"])
         call = client.get(f"/api/llm-calls/{calls[0]['id']}").json()
+        assert call["cost_usd"] == pytest.approx(0.0042)
         assert call["messages"][0]["role"] == "system"
         assert "spoken line" in call["messages"][1]["content"]
         assert "sponsor" in call["response"]
@@ -316,7 +322,7 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
 
         # eval runs in the server: two models over the one verified episode
         calls_before = len(client.get(f"{ep_url}/llm-calls").json())
-        r = client.post("/api/evals/models", json={"name": "Unknown cost", "model": "stub-model"})
+        r = client.post("/api/evals/models", json={"name": "Unknown cost", "model": "stub-unpriced"})
         assert r.status_code == 201, r.text
         unknown_id = r.json()["id"]
         assert r.json()["effective_base_url"] == f"{stub_server}/v1" and r.json()["has_api_key"] is False

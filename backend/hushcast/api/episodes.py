@@ -371,6 +371,7 @@ class LlmCallSummary(BaseModel):
     prompt_tokens: int | None
     completion_tokens: int | None
     reasoning_tokens: int | None
+    cost_usd: float | None  # None = unknown, 0 = free
     elapsed_s: float
     request_chars: int
     response_chars: int
@@ -407,7 +408,7 @@ async def episode_llm_calls(
                 id=c.id, created_at=c.created_at, url=c.url, model=c.model,
                 provider=provider, status_code=c.status_code, finish_reason=c.finish_reason,
                 prompt_tokens=c.prompt_tokens, completion_tokens=c.completion_tokens,
-                reasoning_tokens=reasoning_tokens,
+                reasoning_tokens=reasoning_tokens, cost_usd=c.cost_usd,
                 elapsed_s=c.elapsed_s, request_chars=len(c.request_json), response_chars=len(c.response_text),
                 event_count=len(json.loads(c.events_json)) if c.events_json else 0,
             )
@@ -445,6 +446,7 @@ async def llm_call_detail(call_id: int, session: AsyncSession = Depends(get_sess
         "prompt_tokens": call.prompt_tokens,
         "completion_tokens": call.completion_tokens,
         "reasoning_tokens": reasoning_tokens,
+        "cost_usd": call.cost_usd,
         "elapsed_s": call.elapsed_s,
     }
 

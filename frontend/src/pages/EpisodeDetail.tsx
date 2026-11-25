@@ -23,6 +23,7 @@ import { StatusChip } from "../components/StatusChip";
 import { EvalLabelPanel } from "../components/EvalLabelPanel";
 import { EpisodeTimeline } from "../components/EpisodeTimeline";
 import {
+  formatCost,
   formatDate,
   formatDateTime,
   formatDuration,
@@ -233,6 +234,7 @@ function LlmCallRow({ call }: { call: LlmCallSummary }) {
             ? `${call.prompt_tokens} → ${call.completion_tokens ?? "?"} tokens` +
               (call.reasoning_tokens != null ? ` (${call.reasoning_tokens} reasoning)` : "")
             : `${(call.request_chars / 1000).toFixed(1)}k chars in`}
+          {call.cost_usd != null && ` · ${formatCost(call.cost_usd)}`}
           {call.event_count > 0 && (
             <>
               {" · "}

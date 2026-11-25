@@ -1,0 +1,1 @@
+- The System page and each episode's LLM calls show what ad detection cost, for providers that report it (such as OpenRouter). Past calls through OpenRouter are counted too.

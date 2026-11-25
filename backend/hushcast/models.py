@@ -181,6 +181,7 @@ class LlmCall(Base):
     finish_reason: Mapped[str | None] = mapped_column(String(30), nullable=True)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = unknown, 0 = free
     elapsed_s: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 

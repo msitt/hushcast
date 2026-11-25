@@ -274,6 +274,9 @@ export function SystemPage() {
                   {formatTokens(stats.llm.total.prompt_tokens)} tokens in ·{" "}
                   {formatTokens(stats.llm.total.completion_tokens)} out ·{" "}
                   {formatDuration(stats.llm.total.elapsed_s)} total time
+                  {stats.llm.total.cost_usd != null
+                    ? ` · ${formatCost(stats.llm.total.cost_usd)} reported cost`
+                    : ""}
                 </p>
                 <table className="sys-table">
                   <thead>
@@ -284,6 +287,7 @@ export function SystemPage() {
                       <th className="num">Tokens in</th>
                       <th className="num">Tokens out</th>
                       <th className="num">Time</th>
+                      <th className="num">Cost</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -295,12 +299,13 @@ export function SystemPage() {
                         <td className="num">{formatTokens(m.prompt_tokens)}</td>
                         <td className="num">{formatTokens(m.completion_tokens)}</td>
                         <td className="num">{formatDuration(m.elapsed_s)}</td>
+                        <td className="num">{formatCost(m.cost_usd)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <p className="field-hint">
-                  Token counts depend on the provider reporting usage. Some local servers omit it.
+                  Token counts and cost depend on the provider reporting them. Some local servers omit them.
                 </p>
               </>
             )}

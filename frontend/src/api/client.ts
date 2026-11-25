@@ -418,6 +418,8 @@ export interface LlmModelStats {
   prompt_tokens: number;
   completion_tokens: number;
   elapsed_s: number;
+  /** null when the provider reported no cost */
+  cost_usd: number | null;
 }
 
 export interface TranscriptionModelStats {
@@ -447,7 +449,13 @@ export interface SystemStats {
     ad_pct: number;
   }[];
   llm: {
-    total: { calls: number; prompt_tokens: number; completion_tokens: number; elapsed_s: number };
+    total: {
+      calls: number;
+      prompt_tokens: number;
+      completion_tokens: number;
+      elapsed_s: number;
+      cost_usd: number | null;
+    };
     by_model: LlmModelStats[];
   };
   transcription: {
@@ -522,6 +530,8 @@ export interface LlmCallSummary {
   prompt_tokens: number | null;
   completion_tokens: number | null;
   reasoning_tokens: number | null;
+  /** null = unknown, 0 = free */
+  cost_usd: number | null;
   elapsed_s: number;
   request_chars: number;
   response_chars: number;
