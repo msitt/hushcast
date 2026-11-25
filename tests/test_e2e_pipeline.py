@@ -444,7 +444,7 @@ def test_full_pipeline(stub_server, tmp_path_factory, monkeypatch):
         assert client.post(f"/api/episodes/{ep_id}/reprocess", params={"from_step": "cut"}).status_code == 200
         ep = wait_for(ep_id, ("processed", "failed", "review"))
         assert ep["status"] == "processed", ep
-        assert ep["ad_seconds_removed"] == pytest.approx(55.0, abs=1.0)  # cut ignores the kept trim's overlap
+        assert ep["ad_seconds_removed"] == pytest.approx(15.0, abs=1.0)  # 0-55 block minus the 0-40 trim
         assert [j["step"] for j in ep["jobs"][-2:]] == ["cut", "finalize"]
 
         # --- promo-only episode, default action: left out of the feed as skipped
