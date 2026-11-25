@@ -156,7 +156,7 @@ Everything else is runtime settings, edited in the web UI and stored in the data
 
 ### Development
 
-Requirements: [uv](https://docs.astral.sh/uv/), Node 24 (`.node-version`, fnm-compatible), ffmpeg on PATH.
+Requirements: [uv](https://docs.astral.sh/uv/), Node 26 (`.node-version`, fnm-compatible), ffmpeg on PATH.
 
 ```bash
 uv sync                       # install backend deps
