@@ -942,13 +942,14 @@ export function EpisodeDetailPage() {
 
   const markRange = async (startS: number, endS: number, kind: MarkKind) => {
     try {
-      await api.addSegment(String(ep!.id), {
+      // a not-an-ad trim can come back wider (over silence at a block edge)
+      const saved = await api.addSegment(String(ep!.id), {
         start_s: startS,
         end_s: endS,
         not_ad: kind === "not_ad",
         optional: kind === "optional",
       });
-      const range = `${formatTimestamp(startS)}–${formatTimestamp(endS)}`;
+      const range = `${formatTimestamp(saved.start_s)}–${formatTimestamp(saved.end_s)}`;
       toastSuccess(
         kind === "optional"
           ? `Marked ${range} as optional, evals will ignore it`

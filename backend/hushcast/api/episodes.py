@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_config
 from ..evals import labels as eval_labels
+from ..evals.intervals import union
 from ..evals.truth import SegmentRow, effective_truth
 from ..models import Episode, EvalLabel, Job, LlmCall, Segment, utcnow
 from ..pipeline import state
@@ -233,6 +234,35 @@ def _snapshot_excerpt(episode_id: int, start_s: float, end_s: float) -> str | No
     return build_excerpt(transcript, start_s, end_s)
 
 
+# A line overlapping a leftover piece by less than this doesn't count as
+# speech in it: rebuilt transcripts round line times to 0.1 s, and a line can
+# just touch the trim's edge.
+_TRIM_LINE_OVERLAP_S = 0.1
+
+
+def extend_trim_over_silence(
+    start_s: float, end_s: float, blocks: list[tuple[float, float]], lines: list[tuple[float, float]]
+) -> tuple[float, float]:
+    """Widen a not-an-ad trim to the edge of the ad block it sits in when the
+    piece of the block left past that edge holds no transcript line.
+
+    Trims are made by selecting whole transcript lines, so a trim of a block's
+    last lines stops where the last line ends and leaves the silence after it
+    as a sliver of "ad". Speech left in the piece is still an ad, so the trim
+    stays as is on that side.
+    """
+
+    def has_speech(ps: float, pe: float) -> bool:
+        return any(min(pe, le) - max(ps, ls) > _TRIM_LINE_OVERLAP_S for ls, le in lines)
+
+    for bs, be in union(blocks):
+        if bs < start_s < be and not has_speech(bs, start_s):
+            start_s = bs
+        if bs < end_s < be and not has_speech(end_s, be):
+            end_s = be
+    return start_s, end_s
+
+
 class SegmentPatch(BaseModel):
     kept: bool
 
@@ -314,16 +344,25 @@ async def add_manual_segment(
         if not overlapping:
             raise HTTPException(409, "this range doesn't overlap any detected segment")
         category = overlapping[0].category
+        start_s, end_s = body.start_s, body.end_s
+        inputs = await eval_labels.detection_inputs(session, ep)
+        if inputs is not None:
+            start_s, end_s = extend_trim_over_silence(
+                start_s,
+                end_s,
+                [(s.start_s, s.end_s) for s in overlapping],
+                [(line.start, line.end) for line in inputs.transcript.segments],
+            )
         seg = Segment(
             episode_id=episode_id,
-            start_s=body.start_s,
-            end_s=body.end_s,
+            start_s=start_s,
+            end_s=end_s,
             category=category,
             reason="marked not-an-ad within a detected block",
             source="manual",
             kept=True,
             corrected_at=utcnow(),
-            excerpt=_snapshot_excerpt(episode_id, body.start_s, body.end_s),
+            excerpt=_snapshot_excerpt(episode_id, start_s, end_s),
         )
         session.add(seg)
         await session.commit()
