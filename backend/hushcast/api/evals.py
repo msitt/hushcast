@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import settings_store
 from ..detection.llm import LLMClient
 from ..evals import jobs, labels, results
-from ..evals.scoring import ScoreConfig
+from ..evals.scoring import EDGE_GAP_MAX_S, ScoreConfig
 from ..evals.truth import SegmentRow, effective_truth
 from ..models import Episode, EvalLabel, EvalModel, EvalResult, EvalRun, Feed, Segment
 from ..pipeline import state
@@ -423,11 +423,12 @@ async def eval_results(
     content_weight: float = Query(3.0, ge=0, le=100),
     collar: float = Query(1.0, ge=0, le=30),
     blunder: float = Query(5.0, ge=0, le=600),
+    edge_gap: float = Query(EDGE_GAP_MAX_S, ge=0, le=300),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     try:
         run_ids = [int(x) for x in runs.split(",") if x.strip()]
     except ValueError as exc:
         raise HTTPException(400, "runs must be comma-separated ids") from exc
-    cfg = ScoreConfig(collar_s=collar, content_weight=content_weight, blunder_s=blunder)
+    cfg = ScoreConfig(collar_s=collar, content_weight=content_weight, blunder_s=blunder, edge_gap_s=edge_gap)
     return await results.scored_runs(session, run_ids, cfg)

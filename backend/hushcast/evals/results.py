@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import settings_store
 from ..models import Episode, EvalLabel, EvalResult, EvalRun, Feed
 from . import labels, summarize
-from .scoring import ScoreConfig, score_episode, silence_intervals
+from .scoring import ScoreConfig, edge_gaps, score_episode, silence_intervals
 
 
 async def run_progress(session: AsyncSession, run_ids: list[int]) -> dict[int, dict[str, Any]]:
@@ -229,9 +229,27 @@ async def scored_runs(session: AsyncSession, run_ids: list[int], cfg: ScoreConfi
         })
 
     return {
-        "config": {"content_weight": cfg.content_weight, "collar_s": cfg.collar_s, "blunder_s": cfg.blunder_s},
+        "config": {
+            "content_weight": cfg.content_weight,
+            "collar_s": cfg.collar_s,
+            "blunder_s": cfg.blunder_s,
+            "edge_gap_s": cfg.edge_gap_s,
+        },
         "metric_rows": summarize.metric_rows(),
-        "episodes": [{**episodes[eid], "hints_leak": eid in leaked} for eid in common],
+        "episodes": [
+            {
+                **episodes[eid],
+                "hints_leak": eid in leaked,
+                # what scoring ignores at the edges, so the timeline doesn't draw it as an error
+                "edge_gaps": edge_gaps(
+                    [(t[0], t[1]) for t in episodes[eid]["truth"]],
+                    [(o[0], o[1]) for o in episodes[eid]["optional"]],
+                    silences[eid],
+                    cfg.edge_gap_s,
+                ),
+            }
+            for eid in common
+        ],
         "verified_episodes": len(episodes),
         "leaked": len(leaked),
         # runs made under different hints or detection settings aren't a like-for-like comparison

@@ -3,9 +3,10 @@ import math
 import pytest
 
 from hushcast.evals.scoring import (
-    EDGE_SILENCE_MAX_S,
+    EDGE_GAP_MAX_S,
     ScoreConfig,
     aggregate,
+    edge_gaps,
     score_episode,
     silence_intervals,
 )
@@ -166,7 +167,7 @@ def test_speech_past_the_edge_silence_still_counts():
 
 
 def test_long_or_distant_silence_is_still_scored():
-    long = EDGE_SILENCE_MAX_S + 1
+    long = EDGE_GAP_MAX_S + 1
     s = score([(100, 160)], [(100, 160 + long)], silence=[(160, 160 + long)])
     assert s.content_cut_s == pytest.approx(long - 1)  # only the collar is forgiven
     far = score([(100, 160)], [(100, 166)], silence=[(163, 166)])
@@ -181,3 +182,18 @@ def test_silence_intervals_from_lines_words_and_cues():
     cues = [{"start": 20.0, "end": 22.0, "kind": "silence"}, {"start": 30.0, "end": 40.0, "kind": "music"}]
     assert silence_intervals(transcript, cues) == [(1.0, 1.5), (4.0, 6.0), (20.0, 22.0)]
     assert silence_intervals(None, None) == []
+
+
+def test_edge_gap_limit_is_a_scoring_control():
+    gap = [(157.0, 160.0)]
+    assert score([(100, 160)], [(100, 157)], silence=gap).missed_ad_s == 0
+    strict = ScoreConfig(collar_s=1.0, content_weight=3.0, blunder_s=5.0, edge_gap_s=0)
+    assert score([(100, 160)], [(100, 157)], silence=gap, cfg=strict).missed_ad_s == pytest.approx(2)
+    short = ScoreConfig(collar_s=1.0, content_weight=3.0, blunder_s=5.0, edge_gap_s=2)
+    assert score([(100, 160)], [(100, 157)], silence=gap, cfg=short).missed_ad_s == pytest.approx(2)
+
+
+def test_edge_gaps_lists_only_gaps_at_an_edge():
+    silence = [(50.0, 52.0), (157.0, 160.0), (200.0, 203.0)]
+    assert edge_gaps([(100, 160)], [(200, 230)], silence, 30) == [(157.0, 160.0), (200.0, 203.0)]
+    assert edge_gaps([(100, 160)], [], silence, 0) == []

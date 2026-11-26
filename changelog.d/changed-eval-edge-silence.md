@@ -1,1 +1,1 @@
-- Eval scoring no longer counts silence of up to 5 seconds at the edge of an ad as cut show or a missed ad, so a model isn't penalized for where in a pause its cut lands.
+- Eval scoring no longer counts up to 30 seconds of silence or untranscribed audio at the edge of an ad as cut show or a missed ad. Transcribers like Whisper often leave such gaps blank, so where a cut lands in one says nothing about the model.

@@ -159,16 +159,18 @@ function CostErrorChart({ points, unknown }: { points: ChartPoint[]; unknown: st
 // ---------------------------------------------------------------------------
 // episode timeline
 
-function repeatParts(truth: Iv[], optional: Iv[], r: EvalRepeatResult, collar: number) {
+function repeatParts(truth: Iv[], optional: Iv[], gaps: Iv[], r: EvalRepeatResult, collar: number) {
   // promo and failed outcomes cut nothing, whatever segments were returned
   const cuts = r.outcome === "cut" || r.outcome === "review" ? union(r.segments.map((s: EvalSegment) => [s[0], s[1]] as Iv)) : [];
-  // An error no longer than the collar scores as zero, so it isn't drawn either.
+  // An error no longer than the collar scores as zero, so it isn't drawn either,
+  // and neither is an untranscribed gap at an edge that scoring ignores.
   const counts = (iv: Iv) => iv[1] - iv[0] > collar;
+  const scored = (ivs: Iv[]) => subtract(ivs, gaps).filter(counts);
   return [
     ...subtract(cuts, subtract(cuts, truth)).map((iv) => ({ iv, kind: "correct", label: "Ad cut" })),
-    ...subtract(subtract(cuts, truth), optional).filter(counts).map((iv) => ({ iv, kind: "content", label: "Content cut" })),
+    ...scored(subtract(subtract(cuts, truth), optional)).map((iv) => ({ iv, kind: "content", label: "Content cut" })),
     ...subtract(cuts, subtract(cuts, optional)).map((iv) => ({ iv, kind: "optional", label: "Optional, cut (not scored)" })),
-    ...subtract(truth, cuts).filter(counts).map((iv) => ({ iv, kind: "missed", label: "Ad missed" })),
+    ...scored(subtract(truth, cuts)).map((iv) => ({ iv, kind: "missed", label: "Ad missed" })),
   ];
 }
 
@@ -186,15 +188,18 @@ function EpisodeDialog({
   episode,
   runs,
   collar,
+  edgeGap,
   onClose,
 }: {
   episode: EvalResultEpisode;
   runs: EvalScoredRun[];
   collar: number;
+  edgeGap: number;
   onClose: () => void;
 }) {
   const optional = union(episode.optional.map((o) => [o[0], o[1]] as Iv));
   const truth = subtract(union(episode.truth.map((t) => [t[0], t[1]] as Iv)), optional);
+  const gaps = union(episode.edge_gaps.map((g) => [g[0], g[1]] as Iv));
   const duration = episode.duration_s || 1;
   return (
     <Modal title={episode.episode_title} onClose={onClose} wide>
@@ -230,7 +235,7 @@ function EpisodeDialog({
               {(cell?.repeats ?? []).map((r) => (
                 <div className="eval-lane-row" key={r.repeat}>
                   <div className="eval-lane-label">Run {r.repeat + 1}</div>
-                  <Lane duration={duration} parts={episode.promo ? [] : repeatParts(truth, optional, r, collar)} />
+                  <Lane duration={duration} parts={episode.promo ? [] : repeatParts(truth, optional, gaps, r, collar)} />
                   <div className="eval-lane-note">{repeatSummary(r, episode.promo)}</div>
                 </div>
               ))}
@@ -246,8 +251,9 @@ function EpisodeDialog({
         <div />
       </div>
       <p className="field-hint">
-        The seconds listed leave out the collar around each ground-truth boundary. Differences no longer than the
-        collar ({collar} s) count as zero and are not drawn.
+        The seconds listed leave out the collar around each ground-truth boundary, and untranscribed gaps of up to{" "}
+        {edgeGap} s that touch one. Differences no longer than the collar ({collar} s) count as zero and are not drawn,
+        and neither are those gaps.
       </p>
     </Modal>
   );
@@ -325,6 +331,7 @@ export function ResultsTab() {
   const [weight, setWeight] = useState("3");
   const [collar, setCollar] = useState("1");
   const [blunder, setBlunder] = useState("5");
+  const [edgeGap, setEdgeGap] = useState("30");
   const [data, setData] = useState<EvalResultsOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skipLeaked, setSkipLeaked] = useState(false);
@@ -344,8 +351,8 @@ export function ResultsTab() {
       const n = Number(text);
       return text.trim() !== "" && isFinite(n) && n >= 0 ? n : fallback;
     };
-    return { content_weight: num(weight, 3), collar: num(collar, 1), blunder: num(blunder, 5) };
-  }, [weight, collar, blunder]);
+    return { content_weight: num(weight, 3), collar: num(collar, 1), blunder: num(blunder, 5), edge_gap: num(edgeGap, 30) };
+  }, [weight, collar, blunder, edgeGap]);
 
   useEffect(() => {
     if (!selected || selected.length === 0) {
@@ -479,6 +486,14 @@ export function ResultsTab() {
             <span className="field-label">Collar, seconds</span>
             <input type="number" min="0" step="0.5" value={collar} onChange={(e) => setCollar(e.target.value)} />
             <span className="field-hint">Ignored on each side of every ground-truth boundary.</span>
+          </label>
+          <label className="field">
+            <span className="field-label">Edge gap, seconds</span>
+            <input type="number" min="0" step="1" value={edgeGap} onChange={(e) => setEdgeGap(e.target.value)} />
+            <span className="field-hint">
+              Longest stretch with no transcribed speech at a ground-truth boundary to ignore, such as a pause or a music
+              sting the transcriber skipped. 0 scores every gap.
+            </span>
           </label>
           <label className="field">
             <span className="field-label">Blunder, seconds</span>
@@ -687,7 +702,7 @@ export function ResultsTab() {
       )}
 
       {opened && data && (
-        <EpisodeDialog episode={opened} runs={runs} collar={data.config.collar_s} onClose={() => setOpenEpisode(null)} />
+        <EpisodeDialog episode={opened} runs={runs} collar={data.config.collar_s} edgeGap={data.config.edge_gap_s} onClose={() => setOpenEpisode(null)} />
       )}
       {promote && (
         <ConfirmDialog

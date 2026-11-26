@@ -60,8 +60,9 @@ Scoring controls re-score everything in place, since runs store predictions and 
 - **Content weight** (default 3): how many seconds of missed ad one second of cut content is worth. Try a few values and see whether the ranking changes.
 - **Collar** (default 1 s): ignored on each side of every ground-truth boundary, since labels and transcript line edges are only accurate to about a second.
 - **Blunder** (default 5 s): the content cut in one episode that counts as a blunder.
+- **Edge gap** (default 30 s): the longest stretch with no transcribed speech at a ground-truth boundary that is ignored, see below. 0 scores every gap.
 
-Silence at a ground-truth boundary is left out too, up to 5 s of it. Where an ad ends inside a pause is arbitrary, and keeping or cutting a few seconds of silence makes no difference to a listener. Silence comes from the gaps between transcript lines, the gaps between words when the transcript has word timestamps, and the silence cues.
+Audio with no transcribed speech at a ground-truth boundary is left out too, up to the edge gap (30 s by default). That covers silence and the stretches a transcriber skipped: Whisper can leave up to about 30 s blank around a music sting or an ad's first line. The model only sees transcript lines, and the label's edge inside such a gap is a guess, so where a cut lands there says nothing about the model. Gaps come from the spaces between transcript lines, between words when the transcript has word timestamps, and from the silence cues.
 
 Optional ranges are left out the same way as the collar: cutting one is not content cut, keeping one is not a missed ad, and a cut that covers only optional audio is not a spurious block. Ad ranges separated only by optional audio count as one block.
 
@@ -105,4 +106,4 @@ input_per_mtok = 0.10
 output_per_mtok = 0.40
 ```
 
-`run` options: `--repeats` (default 3), `--concurrency`, `--episodes 12,40`, `--hints none`. Responses are cached in `.evals/cache` by request and repeat number, so re-running only pays for calls not made yet. `summarize` with no arguments compares the newest report of each variant in `.evals/reports`, and takes `--content-weight`, `--collar` and `--blunder` like the Results tab. Run the same variant before and after your change, and compare the two reports.
+`run` options: `--repeats` (default 3), `--concurrency`, `--episodes 12,40`, `--hints none`. Responses are cached in `.evals/cache` by request and repeat number, so re-running only pays for calls not made yet. `summarize` with no arguments compares the newest report of each variant in `.evals/reports`, and takes `--content-weight`, `--collar`, `--blunder` and `--edge-gap` like the Results tab. Run the same variant before and after your change, and compare the two reports.

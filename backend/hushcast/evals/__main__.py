@@ -19,7 +19,7 @@ from pathlib import Path
 import httpx
 
 from . import runner, summarize
-from .scoring import ScoreConfig
+from .scoring import EDGE_GAP_MAX_S, ScoreConfig
 
 DEFAULT_DIR = Path(".evals")
 
@@ -93,7 +93,9 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
         return 1
     reports = [json.loads(p.read_text(encoding="utf-8")) for p in paths]
     summarize.disambiguate_names(reports)
-    cfg = ScoreConfig(collar_s=args.collar, content_weight=args.content_weight, blunder_s=args.blunder)
+    cfg = ScoreConfig(
+        collar_s=args.collar, content_weight=args.content_weight, blunder_s=args.blunder, edge_gap_s=args.edge_gap
+    )
     episode_ids = summarize.common_episodes(reports)
     if not episode_ids:
         print("the reports share no episodes", file=sys.stderr)
@@ -112,7 +114,8 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
     print(
         f"{len(episode_ids)} episode(s) common to all reports"
         + (f", {skipped} report-episode(s) not shared were left out" if skipped else "")
-        + f". content weight {cfg.content_weight:g}, collar {cfg.collar_s:g}s, blunder over {cfg.blunder_s:g}s cut."
+        + f". content weight {cfg.content_weight:g}, collar {cfg.collar_s:g}s, blunder over {cfg.blunder_s:g}s cut,"
+        + f" edge gaps up to {cfg.edge_gap_s:g}s ignored."
     )
     print()
     print(summarize.render_table(summaries))
@@ -164,6 +167,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--content-weight", type=float, default=3.0,
                    help="how many seconds of missed ad one second of cut content costs (default 3)")
     p.add_argument("--collar", type=float, default=1.0, help="seconds ignored around each truth boundary")
+    p.add_argument(
+        "--edge-gap", type=float, default=EDGE_GAP_MAX_S,
+        help="longest untranscribed gap at a truth boundary to ignore (0 scores every gap)",
+    )
     p.add_argument("--blunder", type=float, default=5.0, help="content cut per episode that counts as a blunder")
     p.add_argument("--per-episode", action="store_true")
     p.add_argument("--json", action="store_true")

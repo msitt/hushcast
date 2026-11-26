@@ -9,10 +9,11 @@ ranks models while the raw pair stays visible. A collar around every truth
 boundary is ignored for both: labels and transcript line edges are only
 accurate to a second or two, and scoring that slack rewards luck.
 
-Silence at a truth boundary is ignored too, up to EDGE_SILENCE_MAX_S. Where
-an ad ends inside a pause is arbitrary (the label may end at the last ad word
-or at the first show word), and a cut that keeps or removes a few seconds of
-silence makes no difference to a listener.
+Audio with no speech in the transcript at a truth boundary is ignored too, up
+to ScoreConfig.edge_gap_s of it (EDGE_GAP_MAX_S by default): silence, and stretches the transcriber skipped
+(Whisper can leave up to about 30 s blank around a music sting or an ad's
+first line). The model sees only transcript lines and the label's edge inside
+such a gap is a guess, so where a cut lands in it says nothing about the model.
 
 Optional ranges are ignored the same way. They mark audio where cutting and
 keeping are both acceptable (a network ident, a "coming up" teaser), so a
@@ -29,10 +30,11 @@ from typing import Any
 
 from .intervals import Interval, intersect, subtract, total, union
 
-# Silence at a truth boundary is not scored when at most this long. Longer
-# stretches are left to the scoring, since that much dead air is worth cutting.
-EDGE_SILENCE_MAX_S = 5.0
-# how close a silence edge must be to a truth boundary to count as touching it
+# Default for ScoreConfig.edge_gap_s: a speech-free gap at a truth boundary is
+# not scored when at most this long. Longer ones are scored, since they likely
+# hold real audio worth judging.
+EDGE_GAP_MAX_S = 30.0
+# how close a gap edge must be to a truth boundary to count as touching it
 _TOUCH_S = 0.25
 
 # A truth block counts as found when the prediction covers this share of it,
@@ -45,6 +47,7 @@ class ScoreConfig:
     collar_s: float = 1.0
     content_weight: float = 3.0
     blunder_s: float = 5.0  # an episode with more content cut than this is a blunder
+    edge_gap_s: float = EDGE_GAP_MAX_S  # 0 scores every gap
 
 
 @dataclass
@@ -91,8 +94,8 @@ def _collar(truth: list[Interval], collar_s: float, duration: float) -> list[Int
 
 
 def silence_intervals(transcript: dict[str, Any] | None, cues: list[dict[str, Any]] | None) -> list[Interval]:
-    """Silence in an episode: gaps between transcript lines, gaps between words
-    when the transcript has word timestamps, and silence cues."""
+    """Audio with no transcribed speech: gaps between transcript lines, gaps
+    between words when the transcript has word timestamps, and silence cues."""
     out: list[Interval] = []
     segments = sorted((transcript or {}).get("segments") or [], key=lambda s: s["start"])
     for prev, nxt in zip(segments, segments[1:], strict=False):
@@ -104,13 +107,19 @@ def silence_intervals(transcript: dict[str, Any] | None, cues: list[dict[str, An
     return [(round(a, 2), round(b, 2)) for a, b in union(out)]
 
 
-def _edge_silence(boundaries: list[Interval], silence: list[Interval]) -> list[Interval]:
-    """The silences, up to EDGE_SILENCE_MAX_S long, that touch a truth boundary."""
-    edges = [b for start, end in boundaries for b in (start, end)]
+def edge_gaps(
+    truth: list[Interval], optional: list[Interval], silence: list[Interval], max_s: float
+) -> list[Interval]:
+    """The speech-free gaps, up to max_s long, that touch a truth or optional
+    boundary: the audio scoring ignores beyond the collar."""
+    if max_s <= 0:
+        return []
+    opt_u = union(optional)
+    edges = [b for start, end in subtract(truth, opt_u) + opt_u for b in (start, end)]
     return [
         (s, e)
         for s, e in silence
-        if e - s <= EDGE_SILENCE_MAX_S and any(s - _TOUCH_S <= b <= e + _TOUCH_S for b in edges)
+        if e - s <= max_s and any(s - _TOUCH_S <= b <= e + _TOUCH_S for b in edges)
     ]
 
 
@@ -146,7 +155,9 @@ def score_episode(
     # promo and error outcomes cut nothing
     pred_u = union(predicted) if outcome in ("cut", "review") else []
     zones = union(
-        _collar(truth_u + opt_u, cfg.collar_s, duration_s) + opt_u + _edge_silence(truth_u + opt_u, silence or [])
+        _collar(truth_u + opt_u, cfg.collar_s, duration_s)
+        + opt_u
+        + edge_gaps(truth, opt_u, silence or [], cfg.edge_gap_s)
     )
     blocks = _blocks(truth_u, opt_u)
 

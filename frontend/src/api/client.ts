@@ -266,10 +266,12 @@ export interface EvalResultEpisode {
   truth: EvalSegment[];
   optional: [number, number][];
   hints_leak: boolean;
+  // untranscribed gaps at truth edges that scoring ignores
+  edge_gaps: [number, number][];
 }
 
 export interface EvalResultsOut {
-  config: { content_weight: number; collar_s: number; blunder_s: number };
+  config: { content_weight: number; collar_s: number; blunder_s: number; edge_gap_s: number };
   metric_rows: EvalMetricRow[];
   episodes: EvalResultEpisode[];
   verified_episodes: number;
@@ -675,11 +677,11 @@ export const api = {
   deleteEvalRun: (id: number) => request<void>(`/api/evals/runs/${id}`, { method: "DELETE" }),
   evalResults: (
     runIds: number[],
-    cfg: { content_weight: number; collar: number; blunder: number },
+    cfg: { content_weight: number; collar: number; blunder: number; edge_gap: number },
     signal?: AbortSignal
   ) =>
     request<EvalResultsOut>(
-      `/api/evals/results?runs=${runIds.join(",")}&content_weight=${cfg.content_weight}&collar=${cfg.collar}&blunder=${cfg.blunder}`,
+      `/api/evals/results?runs=${runIds.join(",")}&content_weight=${cfg.content_weight}&collar=${cfg.collar}&blunder=${cfg.blunder}&edge_gap=${cfg.edge_gap}`,
       { signal }
     ),
   evalsSummary: () => get<{ verified: number; excluded: number }>("/api/evals/summary"),
