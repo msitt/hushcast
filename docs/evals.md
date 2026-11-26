@@ -32,7 +32,9 @@ On the **Runs** tab:
 
 A key is never sent to a different endpoint than the one it was entered for: a model with its own base URL uses its own key or none.
 
-Runs continue in the background, one at a time, alongside regular processing. Every detection is saved as it finishes, so a cancelled, failed or interrupted run can be resumed and only makes the detections that are missing. After a server restart, unfinished runs wait for you to resume them. Eval calls are kept apart from an episode's own LLM call history.
+Runs continue in the background, one at a time, alongside regular processing. Every detection is saved as it finishes, so a cancelled, failed or interrupted run can be resumed and only makes the detections that are missing. After a server restart, unfinished runs wait for you to resume them.
+
+**Retry** on a finished run redoes the detections that failed (a provider error, say) and the ones made before their episode's label changed, which no longer count in the results. In the Results tab, each run row of the episode timeline has a Retry that redoes just that one detection. Either way the run also fills in any episodes labeled since it ran, and the confirmation shows how many detections that is before anything is deleted. A retry is refused when the hints or detection settings changed since the run, because the new detections would not be comparable with the rest. Eval calls are kept apart from an episode's own LLM call history.
 
 ### Cost
 

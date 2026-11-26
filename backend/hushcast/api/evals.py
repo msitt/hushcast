@@ -405,6 +405,41 @@ async def resume_eval_run(run_id: int, session: AsyncSession = Depends(get_sessi
     return {"ok": True}
 
 
+class EvalRetryIn(BaseModel):
+    # Both unset: the failed and stale detections. Both set: that one detection.
+    episode_id: int | None = None
+    repeat: int | None = Field(None, ge=0)
+    dry_run: bool = False
+
+
+@router.post("/evals/runs/{run_id}/retry")
+async def retry_eval_run(run_id: int, body: EvalRetryIn, session: AsyncSession = Depends(get_session)) -> dict:
+    """Redo some of a finished run's detections, then let it fill in anything missing.
+    With dry_run, only reports how many detections that would make."""
+    run = await session.get(EvalRun, run_id)
+    if run is None:
+        raise HTTPException(404, "run not found")
+    if run.status in jobs.UNFINISHED:
+        raise HTTPException(409, "The run is still going. Wait for it to finish.")
+    if (body.episode_id is None) != (body.repeat is None):
+        raise HTTPException(400, "Give both an episode and a repeat, or neither.")
+    detection = (body.episode_id, body.repeat) if body.episode_id is not None else None
+    try:
+        targets, redone, new = await jobs.plan_retry(session, run, detection)
+    except jobs.RunConfigError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    if redone + new == 0:
+        raise HTTPException(409, "Nothing to retry: no detections failed or went stale.")
+    if not body.dry_run:
+        if targets:
+            await session.execute(delete(EvalResult).where(EvalResult.id.in_(targets)))
+        run.status = "queued"
+        run.error = None
+        await session.commit()
+        jobs.manager.kick()
+    return {"redone": redone, "new": new}
+
+
 @router.delete("/evals/runs/{run_id}", status_code=204)
 async def delete_eval_run(run_id: int, session: AsyncSession = Depends(get_session)) -> None:
     run = await session.get(EvalRun, run_id)

@@ -1041,7 +1041,7 @@ select {
 }
 .eval-timeline {
   display: grid;
-  grid-template-columns: 52px minmax(160px, 1fr) minmax(150px, 0.6fr);
+  grid-template-columns: 52px minmax(160px, 1fr) minmax(150px, 0.6fr) auto;
   column-gap: var(--space-3);
   row-gap: 6px;
   align-items: center;
@@ -1149,8 +1149,12 @@ select {
   .eval-timeline {
     grid-template-columns: 44px 1fr;
   }
-  .eval-lane-note {
+  .eval-lane-note,
+  .eval-lane-action {
     grid-column: 2;
+  }
+  .eval-lane-action:empty {
+    display: none;
   }
 }
 .detail-actions {
@@ -1799,6 +1803,9 @@ select {
 }
 .modal-wide {
   max-width: 680px;
+}
+.modal-xwide {
+  max-width: 980px;
 }
 .modal-header {
   display: flex;

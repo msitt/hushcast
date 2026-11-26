@@ -11,6 +11,7 @@ import {
   type TestResult,
 } from "../../api/client";
 import { ConfirmDialog, Modal } from "../../components/Modal";
+import { RetryDialog } from "./RetryDialog";
 import { useToasts } from "../../components/Toasts";
 import { useAsyncData } from "../../hooks";
 import { formatCost, formatDateTime, formatTokens } from "../../format";
@@ -279,7 +280,17 @@ const STATUS_CHIP: Record<string, string> = {
   failed: "chip-red",
 };
 
-function RunRow({ run, busy, act }: { run: EvalRunOut; busy: boolean; act: (label: string, fn: () => Promise<unknown>) => void }) {
+function RunRow({
+  run,
+  busy,
+  act,
+  onRetry,
+}: {
+  run: EvalRunOut;
+  busy: boolean;
+  act: (label: string, fn: () => Promise<unknown>) => void;
+  onRetry: () => void;
+}) {
   const pct = run.total > 0 ? Math.min(100, (100 * run.done) / run.total) : 0;
   const active = ACTIVE.includes(run.status);
   return (
@@ -339,6 +350,16 @@ function RunRow({ run, busy, act }: { run: EvalRunOut; busy: boolean; act: (labe
             Resume
           </button>
         )}
+        {!active && run.model_id != null && (run.errors > 0 || run.covered < run.verified) && (
+          <button
+            className="btn btn-small eval-chip-gap"
+            disabled={busy}
+            title="Redo the detections that failed or were made before their label changed, and fill in episodes labeled since."
+            onClick={onRetry}
+          >
+            Retry
+          </button>
+        )}
         {!active && (
           <button className="btn btn-small eval-chip-gap" disabled={busy} onClick={() => act("Run deleted", () => api.deleteEvalRun(run.id))}>
             Delete
@@ -362,6 +383,7 @@ export function RunsTab() {
 
   const [editing, setEditing] = useState<EvalModelOut | "new" | null>(null);
   const [deleting, setDeleting] = useState<EvalModelOut | null>(null);
+  const [retrying, setRetrying] = useState<EvalRunOut | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [tests, setTests] = useState<Record<number, TestResult | "pending">>({});
   const [repeats, setRepeats] = useState(3);
@@ -580,7 +602,7 @@ export function RunsTab() {
               </thead>
               <tbody>
                 {runs.map((r) => (
-                  <RunRow key={r.id} run={r} busy={busy} act={act} />
+                  <RunRow key={r.id} run={r} busy={busy} act={act} onRetry={() => setRetrying(r)} />
                 ))}
               </tbody>
             </table>
@@ -600,6 +622,18 @@ export function RunsTab() {
             toastSuccess("Model saved");
             reloadModels();
           }}
+        />
+      )}
+      {retrying && (
+        <RetryDialog
+          runId={retrying.id}
+          runName={retrying.name}
+          onDone={() => {
+            toastSuccess("Retry started");
+            setAnyActive(true);
+            reloadRuns();
+          }}
+          onClose={() => setRetrying(null)}
         />
       )}
       {deleting && (

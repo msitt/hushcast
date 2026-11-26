@@ -674,6 +674,8 @@ export const api = {
     post<EvalRunOut[]>("/api/evals/runs", body),
   cancelEvalRun: (id: number) => post<{ ok: boolean }>(`/api/evals/runs/${id}/cancel`),
   resumeEvalRun: (id: number) => post<{ ok: boolean }>(`/api/evals/runs/${id}/resume`),
+  retryEvalRun: (id: number, body: { episode_id?: number; repeat?: number; dry_run?: boolean }) =>
+    post<{ redone: number; new: number }>(`/api/evals/runs/${id}/retry`, body),
   deleteEvalRun: (id: number) => request<void>(`/api/evals/runs/${id}`, { method: "DELETE" }),
   evalResults: (
     runIds: number[],

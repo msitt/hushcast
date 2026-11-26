@@ -40,6 +40,13 @@ _FINGERPRINT_SETTINGS = tuple(
 )
 
 
+# Shown on its own (a dialog, a toast, a run's error line), so written as full sentences.
+CONDITIONS_CHANGED = (
+    "The hints or detection settings changed since this run started. Its results can't be completed under "
+    "the same conditions. Start a new run instead."
+)
+
+
 class RunConfigError(Exception):
     """The run can't start as configured, the message says why."""
 
@@ -71,7 +78,7 @@ def run_settings(settings: dict[str, Any], model: EvalModel) -> dict[str, Any]:
     if model.temperature is not None:
         out["llm_temperature"] = model.temperature
     if not out["llm_base_url"]:
-        raise RunConfigError("no LLM endpoint is configured for evals")
+        raise RunConfigError("No LLM endpoint is configured for evals.")
     return out
 
 
@@ -203,19 +210,16 @@ class EvalRunManager:
                     return
                 model = await session.get(EvalModel, run.model_id) if run.model_id else None
                 if model is None:
-                    raise RunConfigError("the model entry for this run was deleted")
+                    raise RunConfigError("The model entry for this run was deleted.")
                 settings = run_settings(await settings_store.get_all(session), model)
                 extra_params = model_extra_params(model)
                 pricing = runner.Pricing(model.input_per_mtok, model.output_per_mtok)
                 dataset = await labels.export_dataset(session)
                 if not dataset["episodes"]:
-                    raise RunConfigError("there are no verified episodes to run on")
+                    raise RunConfigError("There are no verified episodes to run on.")
                 mark = fingerprint(dataset, run.hints_mode)
                 if run.fingerprint and run.fingerprint != mark:
-                    raise RunConfigError(
-                        "the hints or detection settings changed since this run started. "
-                        "Its results can't be completed under the same conditions, start a new run"
-                    )
+                    raise RunConfigError(CONDITIONS_CHANGED)
                 done = set(
                     (
                         await session.execute(
@@ -300,6 +304,53 @@ class EvalRunManager:
 
 
 manager = EvalRunManager()
+
+
+async def plan_retry(
+    session: AsyncSession, run: EvalRun, detection: tuple[int, int] | None
+) -> tuple[list[int], int, int]:
+    """What retrying a finished run would redo: (result ids to delete, detections
+    redone, detections new to the run).
+
+    Without a detection, the failed detections and the ones whose label inputs
+    changed since (stale, left out of scoring). With one (episode id, repeat),
+    just that detection. The run then resumes, which also makes any detection still missing,
+    such as episodes labeled after it ran. Raises RunConfigError when the run
+    can't continue under the conditions it was made under, before anything is
+    deleted.
+    """
+    model = await session.get(EvalModel, run.model_id) if run.model_id else None
+    if model is None:
+        raise RunConfigError("The model entry for this run was deleted.")
+    run_settings(await settings_store.get_all(session), model)
+    dataset = await labels.export_dataset(session)
+    if run.fingerprint and run.fingerprint != fingerprint(dataset, run.hints_mode):
+        raise RunConfigError(CONDITIONS_CHANGED)
+    hashes = {ep["episode_id"]: ep.get("inputs_hash") for ep in dataset["episodes"]}
+    if detection is not None:
+        if detection[0] not in hashes:
+            raise RunConfigError(f"Episode {detection[0]} is not in the verified eval set.")
+        if not 0 <= detection[1] < run.repeats:
+            raise RunConfigError(f"This run has no repeat {detection[1] + 1}.")
+    rows = (
+        await session.execute(
+            select(EvalResult.id, EvalResult.episode_id, EvalResult.repeat, EvalResult.outcome, EvalResult.inputs_hash)
+            .where(EvalResult.run_id == run.id)
+        )
+    ).all()
+    targets, kept = [], set()
+    for rid, eid, repeat, outcome, inputs_hash in rows:
+        in_set = eid in hashes and repeat < run.repeats
+        if detection is not None:
+            hit = (eid, repeat) == detection
+        else:
+            hit = outcome == "error" or inputs_hash != hashes.get(eid)
+        if in_set and hit:
+            targets.append(rid)
+        else:
+            kept.add((eid, repeat))
+    missing = sum(1 for eid in hashes for r in range(run.repeats) if (eid, r) not in kept)
+    return targets, len(targets), missing - len(targets)
 
 
 async def create_run(session: AsyncSession, model: EvalModel, *, repeats: int, hints_mode: str) -> EvalRun:

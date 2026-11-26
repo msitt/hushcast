@@ -18,6 +18,7 @@ import { useAsyncData } from "../../hooks";
 import { formatCost, formatDate, formatDuration, formatTimestamp } from "../../format";
 import { Pager, usePaged } from "./Pager";
 import { Lane } from "../../components/Lane";
+import { RetryDialog } from "./RetryDialog";
 import { subtract, union, type Iv } from "../../intervals";
 
 const MAX_COMPARED = 6;
@@ -189,20 +190,23 @@ function EpisodeDialog({
   runs,
   collar,
   edgeGap,
+  onRetried,
   onClose,
 }: {
   episode: EvalResultEpisode;
   runs: EvalScoredRun[];
   collar: number;
   edgeGap: number;
+  onRetried: () => void;
   onClose: () => void;
 }) {
   const optional = union(episode.optional.map((o) => [o[0], o[1]] as Iv));
   const truth = subtract(union(episode.truth.map((t) => [t[0], t[1]] as Iv)), optional);
   const gaps = union(episode.edge_gaps.map((g) => [g[0], g[1]] as Iv));
+  const [retrying, setRetrying] = useState<{ run: EvalScoredRun; repeat: number } | null>(null);
   const duration = episode.duration_s || 1;
   return (
-    <Modal title={episode.episode_title} onClose={onClose} wide>
+    <Modal title={episode.episode_title} onClose={onClose} wide="extra">
       <p className="field-hint">
         {episode.feed_title} · {formatDuration(episode.duration_s)} ·{" "}
         {episode.promo ? "promo-only episode" : `${truth.length} ad range${truth.length === 1 ? "" : "s"}`} ·{" "}
@@ -227,6 +231,7 @@ function EpisodeDialog({
         <div className="eval-lane-note">
           {episode.promo ? "nothing should be cut" : truth.length === 0 ? "no ads" : formatDuration(truth.reduce((n, t) => n + t[1] - t[0], 0))}
         </div>
+        <div className="eval-lane-action" />
         {runs.map((run) => {
           const cell: EvalEpisodeCell | undefined = run.episodes[String(episode.episode_id)];
           return (
@@ -237,6 +242,17 @@ function EpisodeDialog({
                   <div className="eval-lane-label">Run {r.repeat + 1}</div>
                   <Lane duration={duration} parts={episode.promo ? [] : repeatParts(truth, optional, gaps, r, collar)} />
                   <div className="eval-lane-note">{repeatSummary(r, episode.promo)}</div>
+                  <div className="eval-lane-action">
+                    {run.model_id != null && !["queued", "running"].includes(run.status) && (
+                      <button
+                        className="btn btn-small"
+                        title="Run this detection again"
+                        onClick={() => setRetrying({ run, repeat: r.repeat })}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -249,12 +265,22 @@ function EpisodeDialog({
           <span>{formatTimestamp(duration)}</span>
         </div>
         <div />
+        <div className="eval-lane-action" />
       </div>
       <p className="field-hint">
         The seconds listed leave out the collar around each ground-truth boundary, and untranscribed gaps of up to{" "}
         {edgeGap} s that touch one. Differences no longer than the collar ({collar} s) count as zero and are not drawn,
         and neither are those gaps.
       </p>
+      {retrying && (
+        <RetryDialog
+          runId={retrying.run.run_id}
+          runName={retrying.run.name}
+          detection={{ episodeId: episode.episode_id, repeat: retrying.repeat }}
+          onDone={onRetried}
+          onClose={() => setRetrying(null)}
+        />
+      )}
     </Modal>
   );
 }
@@ -702,7 +728,9 @@ export function ResultsTab() {
       )}
 
       {opened && data && (
-        <EpisodeDialog episode={opened} runs={runs} collar={data.config.collar_s} edgeGap={data.config.edge_gap_s} onClose={() => setOpenEpisode(null)} />
+        <EpisodeDialog episode={opened} runs={runs} collar={data.config.collar_s} edgeGap={data.config.edge_gap_s}
+          onRetried={() => toastSuccess("Retry started. The new results appear when the run finishes.")}
+          onClose={() => setOpenEpisode(null)} />
       )}
       {promote && (
         <ConfirmDialog
