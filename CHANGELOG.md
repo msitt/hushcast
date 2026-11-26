@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.9.0] - 2026-11-26
+
+### Added
+
+- Evals: retry a finished run's failed detections, or a single detection from the episode timeline, instead of running the whole model again.
+
+### Changed
+
+- Eval scoring no longer counts up to 30 seconds of silence or untranscribed audio at the edge of an ad as cut show or a missed ad. Transcribers like Whisper often leave such gaps blank, so where a cut lands in one says nothing about the model.
+
+### Fixed
+
+- Re-saving an eval label first saved before 1.8.0 no longer marks the existing eval results for that episode as stale.
+
 ## [1.8.0] - 2026-11-25
 
 ### Added
