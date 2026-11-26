@@ -1,1 +1,0 @@
-- Marking the last or first lines of an ad block as not an ad now also covers the silence between those lines and the block's edge. Before, that silence stayed marked as an ad: a tiny extra cut in the audio and an extra ad block in eval ground truth.

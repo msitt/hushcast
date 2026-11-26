@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Notes for the next release are collected in [changelog.d/](changelog.d/) and are combined into this file when a release is cut.
 
+## [1.9.1] - 2026-11-26
+
+### Fixed
+
+- Marking the last or first lines of an ad block as not an ad now also covers the silence between those lines and the block's edge. Before, that silence stayed marked as an ad: a tiny extra cut in the audio and an extra ad block in eval ground truth.
+
 ## [1.9.0] - 2026-11-26
 
 ### Added
